@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Staff } from './staff/staff.entity';
 import { HousekeepingTask } from './housekeeping/housekeeping-task.entity';
@@ -9,6 +10,10 @@ import { MaintenanceModule } from './maintenance/maintenance.module';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
+    }),
     TypeOrmModule.forRoot({
       type: 'mysql',
       host: process.env.DB_HOST || 'localhost',
