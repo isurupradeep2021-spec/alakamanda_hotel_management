@@ -7,9 +7,16 @@ import ViewRoomsPage from './pages/ViewRoomsPage';
 import ViewMenuPage from './pages/ViewMenuPage';
 import RestaurantDetailsPage from './pages/RestaurantDetailsPage';
 import PayrollCenterPage from './pages/PayrollCenterPage';
+import RegisterPage from './pages/RegisterPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './layouts/DashboardLayout';
 import { routeAccess } from './auth/role';
+import {
+  HousekeepingOperationsPage,
+  MaintenanceOperationsPage,
+  RoomServiceDashboardPage,
+  RoomServiceStaffPage
+} from './pages/RoomServicePages';
 import {
   BookingHistoryPage,
   CustomersPage,
@@ -31,6 +38,7 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
       <Route path="/access-denied" element={<AccessDeniedPage />} />
 
       <Route
@@ -70,6 +78,10 @@ function App() {
         <Route path="/restaurant/:id" element={withRoleGuard('/view-menu', <RestaurantDetailsPage />)} />
         <Route path="/book-event" element={withRoleGuard('/book-event', <OperationsPage type="events" />)} />
         <Route path="/profile" element={withRoleGuard('/profile', <ProfilePage />)} />
+        <Route path="/room-service" element={withRoleGuard('/room-service', <RoomServiceDashboardPage />)} />
+        <Route path="/room-service/housekeeping" element={withRoleGuard('/room-service/housekeeping', <HousekeepingOperationsPage />)} />
+        <Route path="/room-service/maintenance" element={withRoleGuard('/room-service/maintenance', <MaintenanceOperationsPage />)} />
+        <Route path="/room-service/staff" element={withRoleGuard('/room-service/staff', <RoomServiceStaffPage />)} />
       </Route>
 
       <Route path="*" element={<Navigate to="/login" replace />} />
