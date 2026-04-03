@@ -1,3 +1,5 @@
+/* eslint-disable react/prop-types */
+
 import { useEffect, useMemo, useState } from 'react';
 import {
   diningAnalytics,
@@ -12,7 +14,7 @@ import {
   registerApi
 } from '../api/service';
 import { useAuth } from '../context/AuthContext';
-import { ROLES } from '../auth/role';
+import { registrationRoles, ROLES, toBackendRole } from '../auth/role';
 
 function formatDate(value) {
   if (!value) return '-';
@@ -107,7 +109,10 @@ export function UserManagementPage() {
     e.preventDefault();
     setError('');
     try {
-      await registerApi(form);
+      await registerApi({
+        ...form,
+        role: toBackendRole(form.role)
+      });
       setForm({ fullName: '', email: '', password: '', role: ROLES.STAFF_MEMBER });
       setShowForm(false);
       load();
@@ -151,9 +156,9 @@ export function UserManagementPage() {
               <input type="email" placeholder="Email Address" value={form.email} onChange={e => setForm({...form, email: e.target.value})} required />
               <input type="password" placeholder="Password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} required />
               <select value={form.role} onChange={e => setForm({...form, role: e.target.value})} required>
-                <option value={ROLES.STAFF_MEMBER}>Staff Member</option>
-                <option value={ROLES.RECEPTIONIST}>Receptionist</option>
-                <option value={ROLES.MANAGER}>Manager</option>
+                {registrationRoles.map((role) => (
+                  <option key={role} value={role}>{role}</option>
+                ))}
               </select>
             </div>
             <button type="submit" className="primary-action" style={{ marginTop: '16px' }}>Securely Create User</button>
