@@ -97,7 +97,15 @@ function OperationsPage({ type }) {
         return { title: "Room Management", subtitle: "Room inventory, reservation handling and double-booking prevention.", icon: "bi-building", code: "Room Gallery" };
     }, [type]);
 
-    const keyMetric = analytics.totalRevenue || analytics.revenue || analytics.netTotal || analytics.eventRevenue || analytics.activeBookings || analytics.records || "-";
+    const keyMetric =
+        analytics.totalRevenue ||
+        analytics.revenue ||
+        analytics.netTotal ||
+        analytics.eventRevenue ||
+        analytics.activeBookings ||
+        analytics.records ||
+        (type === "rooms" ? rows.filter((row) => row._kind === "room").length : rows.length) ||
+        0;
     const lockCustomerReservationIdentity = type === "restaurant" && user?.role === ROLES.CUSTOMER;
     const isCustomerRoomView = type === "rooms" && user?.role === ROLES.CUSTOMER;
 
