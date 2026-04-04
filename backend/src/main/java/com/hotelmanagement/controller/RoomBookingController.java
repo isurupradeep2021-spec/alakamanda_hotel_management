@@ -191,11 +191,13 @@ public class RoomBookingController {
                 : repository.findByRoomNumberAndIdNot(roomNumber, currentId);
 
         boolean overlap = existing.stream()
-                .filter(x -> !"CANCELLED".equalsIgnoreCase(x.getStatus()))
+            .filter(x -> x.getStatus() == null
+                || (!"CANCELLED".equalsIgnoreCase(x.getStatus())
+                && !"CHECKED_OUT".equalsIgnoreCase(x.getStatus())))
                 .anyMatch(x -> checkIn.isBefore(x.getCheckOutDate()) && checkOut.isAfter(x.getCheckInDate()));
 
         if (overlap) {
-            throw new IllegalArgumentException("This room is already booked for selected dates");
+            throw new IllegalArgumentException("This room is already booked");
         }
     }
 
