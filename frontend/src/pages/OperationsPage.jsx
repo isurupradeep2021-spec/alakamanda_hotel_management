@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import {
     calculateRoomPrice,
+    checkoutRoomBooking,
+    completeRoomCleaning,
     createDiningBooking,
     createEventBooking,
     createPayroll,
@@ -262,6 +264,24 @@ function OperationsPage({ type }) {
             await load();
         } catch (err) {
             setError(err.response?.data?.message || err.message || "Delete failed");
+        }
+    };
+
+    const handleCheckoutBooking = async (row) => {
+        try {
+            await checkoutRoomBooking(row.id);
+            await load();
+        } catch (err) {
+            setError(err.response?.data?.message || err.message || "Checkout failed");
+        }
+    };
+
+    const handleCompleteCleaning = async (row) => {
+        try {
+            await completeRoomCleaning(row.id);
+            await load();
+        } catch (err) {
+            setError(err.response?.data?.message || err.message || "Failed to complete cleaning");
         }
     };
 
@@ -777,6 +797,16 @@ function OperationsPage({ type }) {
                                             <td>{row.status || row._kind || "-"}</td>
                                             <td>{row.netSalary || row.totalAmount || row.totalCost || row.pricePerNight || "-"}</td>
                                             <td>
+                                                {type === "rooms" && row._kind === "booking" && (row.status || "").toUpperCase() !== "CHECKED_OUT" && (
+                                                    <button type="button" className="secondary-btn" style={{ marginRight: "8px", padding: "6px 12px" }} onClick={() => handleCheckoutBooking(row)}>
+                                                        Checkout
+                                                    </button>
+                                                )}
+                                                {type === "rooms" && row._kind === "room" && (row.status || "").toUpperCase() === "CLEANING" && (
+                                                    <button type="button" className="secondary-btn" style={{ marginRight: "8px", padding: "6px 12px" }} onClick={() => handleCompleteCleaning(row)}>
+                                                        Complete Cleaning
+                                                    </button>
+                                                )}
                                                 <button type="button" className="secondary-btn" style={{ marginRight: "8px", padding: "6px 12px" }} onClick={() => handleEdit(row)}>
                                                     Edit
                                                 </button>
