@@ -15,7 +15,9 @@ import {
   getMaintenanceTickets,
   getRoomServiceStaff,
   updateHousekeepingTask,
+  updateHousekeepingTaskStatus,
   updateMaintenanceTicket,
+  updateMaintenanceTicketStatus,
   updateRoomServiceStaff
 } from '../api/roomService';
 import { ROLES, getAllowedMenuForRole } from '../auth/role';
@@ -28,6 +30,9 @@ const roomConditionOptions = ['OCCUPIED', 'CHECKOUT', 'PRE_CHECK_IN'];
 const taskTypeOptions = ['CLEANING', 'INSPECTION', 'TURNDOWN'];
 const facilityOptions = ['AC', 'PLUMBING', 'ELECTRICAL', 'FURNITURE', 'OTHER'];
 const staffRoleOptions = ['HOUSEKEEPER', 'MAINTENANCE_STAFF'];
+
+const housekeeperStatusOptions = ['IN_PROGRESS', 'CLEANED', 'INSPECTED'];
+const maintenanceStaffStatusOptions = ['IN_PROGRESS', 'RESOLVED', 'CLOSED'];
 
 const housekeepingInitialForm = {
   roomNumber: '',
@@ -201,7 +206,8 @@ export function HousekeepingOperationsPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const canManage = [ROLES.ADMIN, ROLES.MANAGER, ROLES.HOUSEKEEPER].includes(user?.role);
+  const canManage = [ROLES.ADMIN, ROLES.MANAGER].includes(user?.role);
+  const isHousekeeper = user?.role === ROLES.HOUSEKEEPER;
 
   const loadData = () => {
     getHousekeepingTasks().then((response) => setTasks(response.data || [])).catch(() => setTasks([]));
@@ -307,6 +313,15 @@ export function HousekeepingOperationsPage() {
       loadData();
     } catch (deleteError) {
       setError(getErrorMessage(deleteError, 'Unable to delete housekeeping task.'));
+    }
+  };
+
+  const changeHousekeepingStatus = async (id, status) => {
+    try {
+      await updateHousekeepingTaskStatus(id, status);
+      loadData();
+    } catch (err) {
+      setError(getErrorMessage(err, 'Unable to update task status.'));
     }
   };
 
@@ -436,7 +451,16 @@ export function HousekeepingOperationsPage() {
                   <td>
                     <div className="room-service-table-actions">
                       {canManage ? <button type="button" className="secondary-action room-service-inline-button" onClick={() => beginEdit(task)}>Edit</button> : null}
-                      {user?.role === ROLES.ADMIN || user?.role === ROLES.MANAGER ? <button type="button" className="danger-btn" onClick={() => removeTask(task)}>Delete</button> : null}
+                      {canManage ? <button type="button" className="danger-btn" onClick={() => removeTask(task)}>Delete</button> : null}
+                      {isHousekeeper ? (
+                        <select
+                          value={task.status}
+                          onChange={(e) => changeHousekeepingStatus(task.id, e.target.value)}
+                          className="room-service-status-select"
+                        >
+                          {housekeeperStatusOptions.map((s) => <option key={s} value={s}>{formatLabel(s)}</option>)}
+                        </select>
+                      ) : null}
                     </div>
                   </td>
                 </tr>
@@ -463,7 +487,8 @@ export function MaintenanceOperationsPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const canManage = [ROLES.ADMIN, ROLES.MANAGER, ROLES.MAINTENANCE_STAFF].includes(user?.role);
+  const canManage = [ROLES.ADMIN, ROLES.MANAGER].includes(user?.role);
+  const isMaintenanceStaff = user?.role === ROLES.MAINTENANCE_STAFF;
 
   const loadData = () => {
     getMaintenanceTickets().then((response) => setTickets(response.data || [])).catch(() => setTickets([]));
@@ -573,6 +598,15 @@ export function MaintenanceOperationsPage() {
       loadData();
     } catch (deleteError) {
       setError(getErrorMessage(deleteError, 'Unable to delete maintenance ticket.'));
+    }
+  };
+
+  const changeMaintenanceStatus = async (id, status) => {
+    try {
+      await updateMaintenanceTicketStatus(id, status);
+      loadData();
+    } catch (err) {
+      setError(getErrorMessage(err, 'Unable to update ticket status.'));
     }
   };
 
@@ -700,7 +734,16 @@ export function MaintenanceOperationsPage() {
                   <td>
                     <div className="room-service-table-actions">
                       {canManage ? <button type="button" className="secondary-action room-service-inline-button" onClick={() => beginEdit(ticket)}>Edit</button> : null}
-                      {user?.role === ROLES.ADMIN || user?.role === ROLES.MANAGER ? <button type="button" className="danger-btn" onClick={() => removeTicket(ticket)}>Delete</button> : null}
+                      {canManage ? <button type="button" className="danger-btn" onClick={() => removeTicket(ticket)}>Delete</button> : null}
+                      {isMaintenanceStaff ? (
+                        <select
+                          value={ticket.status}
+                          onChange={(e) => changeMaintenanceStatus(ticket.id, e.target.value)}
+                          className="room-service-status-select"
+                        >
+                          {maintenanceStaffStatusOptions.map((s) => <option key={s} value={s}>{formatLabel(s)}</option>)}
+                        </select>
+                      ) : null}
                     </div>
                   </td>
                 </tr>

@@ -42,3 +42,8 @@ export const updateRoomServiceStaff = (id, payload) =>
   roomServiceHttp.put(`/staff/${id}`, payload);
 export const deleteRoomServiceStaff = (id) =>
   roomServiceHttp.delete(`/staff/${id}`);
+
+export const updateHousekeepingTaskStatus = (id, status) =>
+  roomServiceHttp.patch(`/housekeeping/${id}/status`, { status });
+export const updateMaintenanceTicketStatus = (id, status) =>
+  roomServiceHttp.patch(`/maintenance/${id}/status`, { status });

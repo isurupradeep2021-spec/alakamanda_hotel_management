@@ -30,6 +30,12 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponse register(RegisterRequest request) {
+        if (request.getRole() == com.hotelmanagement.entity.Role.HOUSEKEEPER
+                || request.getRole() == com.hotelmanagement.entity.Role.MAINTENANCE_STAFF) {
+            throw new IllegalArgumentException(
+                    "Role " + request.getRole() + " cannot be registered through this endpoint.");
+        }
+
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("Email already exists");
         }

@@ -237,6 +237,13 @@
 
 select.dark-input {
   appearance: none;
+  background-color: #1a1a1a;
+  color: #fff;
+}
+
+select.dark-input option {
+  background-color: #1a1a1a;
+  color: #fff;
 }
 
 .form-options {

@@ -17,8 +17,6 @@ export const registrationRoles = [
   ROLES.MANAGER,
   ROLES.STAFF_MEMBER,
   ROLES.RECEPTIONIST,
-  ROLES.HOUSEKEEPER,
-  ROLES.MAINTENANCE_STAFF,
 ];
 
 export const roleMenus = {

@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -10,6 +11,7 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
+  Request,
 } from '@nestjs/common';
 import { MaintenanceService } from './maintenance.service';
 import { CreateMaintenanceTicketDto } from './dto/create-maintenance-ticket.dto';
@@ -24,15 +26,15 @@ export class MaintenanceController {
   constructor(private readonly maintenanceService: MaintenanceService) {}
 
   @Post()
-  @Roles('ADMIN', 'MANAGER', 'MAINTENANCE_STAFF')
+  @Roles('ADMIN', 'MANAGER')
   create(@Body() dto: CreateMaintenanceTicketDto) {
     return this.maintenanceService.create(dto);
   }
 
   @Get()
   @Roles('ADMIN', 'MANAGER', 'MAINTENANCE_STAFF')
-  findAll() {
-    return this.maintenanceService.findAll();
+  findAll(@Request() req: any) {
+    return this.maintenanceService.findAll(req.user);
   }
 
   @Get('stats')
@@ -48,12 +50,22 @@ export class MaintenanceController {
   }
 
   @Put(':id')
-  @Roles('ADMIN', 'MANAGER', 'MAINTENANCE_STAFF')
+  @Roles('ADMIN', 'MANAGER')
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateMaintenanceTicketDto,
   ) {
     return this.maintenanceService.update(id, dto);
+  }
+
+  @Patch(':id/status')
+  @Roles('MAINTENANCE_STAFF')
+  updateStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('status') status: string,
+    @Request() req: any,
+  ) {
+    return this.maintenanceService.updateStatus(id, status, req.user);
   }
 
   @Delete(':id')
