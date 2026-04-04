@@ -45,6 +45,8 @@ public class DataSeeder implements CommandLineRunner {
         upsertUser("Admin User", "admin@hotel.com", Role.ADMIN, "ADM-001", "Administrator", new BigDecimal("6000.00"), "0770000001");
         upsertUser("Manager User", "manager@hotel.com", Role.MANAGER, "MNG-001", "Manager", new BigDecimal("4500.00"), "0770000002");
         upsertUser("Staff Member", "staff@hotel.com", Role.STAFF, "STF-001", "Receptionist", new BigDecimal("2200.00"), "0770000007");
+        upsertUser("Housekeeping Lead", "housekeeping@hotel.com", Role.HOUSEKEEPER, "HKS-001", "Housekeeping", new BigDecimal("2100.00"), "0770000008");
+        upsertUser("Maintenance Lead", "maintenance@hotel.com", Role.MAINTENANCE_STAFF, "MNT-001", "Maintenance", new BigDecimal("2300.00"), "0770000009");
 
         // Keep existing project roles for other modules.
         upsertUser("Reception User", "reception@hotel.com", Role.RECEPTIONIST, "REC-001", "Receptionist", new BigDecimal("2200.00"), "0770000003");

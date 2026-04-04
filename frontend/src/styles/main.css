@@ -1420,6 +1420,127 @@ textarea:focus {
   }
 }
 
+/* =========================================
+   ROOM SERVICE MODULE
+   ========================================= */
+.room-service-hero {
+  background:
+    linear-gradient(135deg, rgba(183, 147, 91, 0.12), rgba(26, 26, 26, 0.04)),
+    var(--white);
+}
+
+.room-service-filter-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.room-service-form {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.room-service-form-span {
+  grid-column: 1 / -1;
+}
+
+.room-service-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: flex-end;
+}
+
+.room-service-table-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.room-service-inline-button {
+  padding: 10px 14px;
+  font-size: 11px;
+}
+
+.room-service-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  min-width: 120px;
+  background: var(--cream-dark);
+  color: var(--charcoal);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+
+.room-service-badge-pending,
+.room-service-badge-open,
+.room-service-badge-high {
+  background: rgba(211, 47, 47, 0.08);
+  color: #9d2a2a;
+}
+
+.room-service-badge-in-progress,
+.room-service-badge-assigned,
+.room-service-badge-medium,
+.room-service-badge-pre-check-in,
+.room-service-badge-checkout {
+  background: rgba(183, 147, 91, 0.16);
+  color: #8a642f;
+}
+
+.room-service-badge-cleaned,
+.room-service-badge-inspected,
+.room-service-badge-resolved,
+.room-service-badge-housekeeper,
+.room-service-badge-low,
+.room-service-badge-occupied {
+  background: rgba(46, 125, 50, 0.12);
+  color: #2f6a31;
+}
+
+.room-service-badge-closed,
+.room-service-badge-maintenance-staff,
+.room-service-badge-ac,
+.room-service-badge-plumbing,
+.room-service-badge-electrical,
+.room-service-badge-furniture,
+.room-service-badge-other,
+.room-service-badge-cleaning,
+.room-service-badge-inspection,
+.room-service-badge-turndown {
+  background: rgba(24, 53, 87, 0.1);
+  color: #183557;
+}
+
+.room-service-meta {
+  margin-top: 6px;
+  color: var(--charcoal-soft);
+  font-size: 12px;
+}
+
+.room-service-empty-state {
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--charcoal-soft);
+}
+
+@media (max-width: 768px) {
+  .room-service-actions {
+    justify-content: stretch;
+  }
+
+  .room-service-actions .primary-action,
+  .room-service-actions .secondary-action {
+    flex: 1;
+  }
+
+  .room-service-badge {
+    min-width: 0;
+  }
+}
 @media (max-width: 768px) {
   .app-shell {
     grid-template-columns: 1fr;

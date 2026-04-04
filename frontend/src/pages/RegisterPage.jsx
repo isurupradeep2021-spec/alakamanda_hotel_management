@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { registerApi } from '../api/service';
+import { registrationRoles, ROLES, toBackendRole } from '../auth/role';
 import '../styles/auth.css';
 import StarsBackground from '../components/StarsBackground';
-
-const roles = ['CUSTOMER', 'MANAGER', 'FINANCIAL_MANAGER', 'STAFF'];
 
 function RegisterPage() {
   const navigate = useNavigate();
@@ -12,7 +11,7 @@ function RegisterPage() {
     fullName: '',
     email: '',
     password: '',
-    role: 'CUSTOMER',
+    role: ROLES.CUSTOMER,
     phone: ''
   });
   const [error, setError] = useState('');
@@ -24,7 +23,10 @@ function RegisterPage() {
     setError('');
     setLoading(true);
     try {
-      await registerApi(form);
+      await registerApi({
+        ...form,
+        role: toBackendRole(form.role)
+      });
       navigate('/login');
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Registration failed');
@@ -86,10 +88,11 @@ function RegisterPage() {
 
           <form className="dark-form" onSubmit={handleSubmit}>
             <div className="dark-form-group">
-              <label>Full Name</label>
+              <label htmlFor="register-full-name">Full Name</label>
               <div className="dark-input-wrap">
                 <i className="bi bi-person"></i>
                 <input 
+                  id="register-full-name"
                   type="text" 
                   className="dark-input" 
                   value={form.fullName} 
@@ -101,10 +104,11 @@ function RegisterPage() {
             </div>
 
             <div className="dark-form-group">
-              <label>Email Address</label>
+              <label htmlFor="register-email">Email Address</label>
               <div className="dark-input-wrap">
                 <i className="bi bi-envelope"></i>
                 <input 
+                  id="register-email"
                   type="email" 
                   className="dark-input" 
                   value={form.email} 
@@ -116,10 +120,11 @@ function RegisterPage() {
             </div>
 
             <div className="dark-form-group">
-              <label>Password</label>
+              <label htmlFor="register-password">Password</label>
               <div className="dark-input-wrap">
                 <i className="bi bi-lock"></i>
                 <input 
+                  id="register-password"
                   type={showPassword ? "text" : "password"} 
                   className="dark-input" 
                   value={form.password} 
@@ -135,10 +140,11 @@ function RegisterPage() {
 
             <div className="dark-form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               <div>
-                <label>Phone Number</label>
+                <label htmlFor="register-phone">Phone Number</label>
                 <div className="dark-input-wrap" style={{ marginTop: '8px' }}>
                   <i className="bi bi-telephone"></i>
                   <input 
+                    id="register-phone"
                     type="tel" 
                     className="dark-input" 
                     value={form.phone} 
@@ -148,16 +154,17 @@ function RegisterPage() {
                 </div>
               </div>
               <div>
-                <label>Account Role</label>
+                <label htmlFor="register-role">Account Role</label>
                 <div className="dark-input-wrap" style={{ marginTop: '8px' }}>
                   <i className="bi bi-shield-check"></i>
                   <select 
+                    id="register-role"
                     className="dark-input" 
                     value={form.role} 
                     onChange={(e) => setForm({ ...form, role: e.target.value })}
                   >
-                    {roles.map((role) => (
-                      <option key={role} value={role}>{role.replace('_', ' ')}</option>
+                    {registrationRoles.map((role) => (
+                      <option key={role} value={role}>{role}</option>
                     ))}
                   </select>
                 </div>
@@ -167,7 +174,7 @@ function RegisterPage() {
             <div className="form-options">
               <label className="checkbox-label">
                 <input type="checkbox" required />
-                I agree to the Terms & Conditions
+                <span>I agree to the Terms & Conditions</span>
               </label>
             </div>
 

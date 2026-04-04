@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getAllowedMenuForRole, ROLES } from '../auth/role';
+import { getAllowedMenuForRole, isRoomServiceRole, ROLES } from '../auth/role';
 import { getSummary } from '../api/service';
 import CustomerDashboardPage from './CustomerDashboardPage';
+import { RoomServiceDashboardPage } from './RoomServicePages';
 
 function DashboardPage() {
   const { user } = useAuth();
@@ -16,12 +17,18 @@ function DashboardPage() {
     if (isCustomer || isStaffMember) {
       setSummary(null);
       return;
+  const isRoomServiceUser = isRoomServiceRole(user?.role);
+
+  useEffect(() => {
+    if (isCustomer || isRoomServiceUser) {
+      return undefined;
     }
 
     getSummary()
       .then((res) => setSummary(res.data))
       .catch(() => setSummary(null));
   }, [isCustomer, isStaffMember]);
+  }, [isCustomer, isRoomServiceUser]);
 
   if (isCustomer) {
     return <CustomerDashboardPage />;
@@ -42,6 +49,9 @@ function DashboardPage() {
         { key: 'payrollRecords', label: 'Payroll Records', icon: 'bi-cash-stack', value: summary?.payrollRecords ?? '-', trend: 'Updated monthly' },
         { key: 'modules', label: 'Modules Available', icon: 'bi-grid-1x2', value: menu.length, trend: user?.role || '' }
       ];
+  if (isRoomServiceUser) {
+    return <RoomServiceDashboardPage />;
+  }
 
   const activityFeed = isStaffMember
     ? [

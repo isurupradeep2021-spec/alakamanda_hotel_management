@@ -99,6 +99,17 @@ public class EventBookingController {
         }
     }
 
+
+
+
+
+
+
+
+
+
+    
+
     private void validateStatus(String status) {
         if (status == null || !STATUS_FLOW.contains(status.toUpperCase())) {
             throw new IllegalArgumentException("Invalid event status");

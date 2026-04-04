@@ -1,3 +1,5 @@
+/* eslint-disable react/prop-types */
+
 import { useEffect, useMemo, useState } from 'react';
 import {
   createStaffMember,
@@ -14,6 +16,7 @@ import {
   updateStaffMember
 } from '../api/service';
 import { useAuth } from '../context/AuthContext';
+import { registrationRoles, ROLES, toBackendRole } from '../auth/role';
 
 function formatDate(value) {
   if (!value) return '-';
@@ -161,6 +164,11 @@ export function UserManagementPage() {
         setSuccess('Staff member created successfully');
       }
       resetForm();
+      await registerApi({
+        ...form,
+        role: toBackendRole(form.role)
+      });
+      setForm({ fullName: '', email: '', password: '', role: ROLES.STAFF_MEMBER });
       setShowForm(false);
       load();
     } catch (err) {
@@ -250,6 +258,11 @@ export function UserManagementPage() {
                 <option value="ACTIVE">ACTIVE</option>
                 <option value="ON_LEAVE">ON LEAVE</option>
                 <option value="INACTIVE">INACTIVE</option>
+              <input type="password" placeholder="Password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} required />
+              <select value={form.role} onChange={e => setForm({...form, role: e.target.value})} required>
+                {registrationRoles.map((role) => (
+                  <option key={role} value={role}>{role}</option>
+                ))}
               </select>
               <input value="STAFF" readOnly />
             </div>
