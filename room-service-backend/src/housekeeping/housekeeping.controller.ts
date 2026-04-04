@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -10,6 +11,7 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
+  Request,
 } from '@nestjs/common';
 import { HousekeepingService } from './housekeeping.service';
 import { CreateHousekeepingTaskDto } from './dto/create-housekeeping-task.dto';
@@ -24,15 +26,15 @@ export class HousekeepingController {
   constructor(private readonly housekeepingService: HousekeepingService) {}
 
   @Post()
-  @Roles('ADMIN', 'MANAGER', 'HOUSEKEEPER')
+  @Roles('ADMIN', 'MANAGER')
   create(@Body() dto: CreateHousekeepingTaskDto) {
     return this.housekeepingService.create(dto);
   }
 
   @Get()
   @Roles('ADMIN', 'MANAGER', 'HOUSEKEEPER')
-  findAll() {
-    return this.housekeepingService.findAll();
+  findAll(@Request() req: any) {
+    return this.housekeepingService.findAll(req.user);
   }
 
   @Get('stats')
@@ -48,12 +50,22 @@ export class HousekeepingController {
   }
 
   @Put(':id')
-  @Roles('ADMIN', 'MANAGER', 'HOUSEKEEPER')
+  @Roles('ADMIN', 'MANAGER')
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateHousekeepingTaskDto,
   ) {
     return this.housekeepingService.update(id, dto);
+  }
+
+  @Patch(':id/status')
+  @Roles('HOUSEKEEPER')
+  updateStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('status') status: string,
+    @Request() req: any,
+  ) {
+    return this.housekeepingService.updateStatus(id, status, req.user);
   }
 
   @Delete(':id')
