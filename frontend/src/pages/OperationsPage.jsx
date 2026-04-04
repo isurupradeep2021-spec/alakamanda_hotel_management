@@ -458,6 +458,16 @@ function OperationsPage({ type }) {
                     Seasonal Price (Optional)
                     <input type="number" min="0" value={form.specialRate ?? ""} onChange={(e) => setForm({ ...form, specialRate: e.target.value === "" ? null : Number(e.target.value) })} />
                 </label>
+                <label>
+                    Room Status
+                    <select value={form.status || "AVAILABLE"} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                        <option>AVAILABLE</option>
+                        <option>RESERVED</option>
+                        <option>OCCUPIED</option>
+                        <option>CLEANING</option>
+                        <option>MAINTENANCE</option>
+                    </select>
+                </label>
             </div>
         );
     };
