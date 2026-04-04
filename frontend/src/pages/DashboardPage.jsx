@@ -1,24 +1,35 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getAllowedMenuForRole, ROLES } from '../auth/role';
+import { getAllowedMenuForRole, isRoomServiceRole, ROLES } from '../auth/role';
 import { getSummary } from '../api/service';
 import CustomerDashboardPage from './CustomerDashboardPage';
+import { RoomServiceDashboardPage } from './RoomServicePages';
 
 function DashboardPage() {
   const { user } = useAuth();
   const menu = getAllowedMenuForRole(user?.role);
   const [summary, setSummary] = useState(null);
-
-  if (user?.role === ROLES.CUSTOMER) {
-    return <CustomerDashboardPage />;
-  }
+  const isCustomer = user?.role === ROLES.CUSTOMER;
+  const isRoomServiceUser = isRoomServiceRole(user?.role);
 
   useEffect(() => {
+    if (isCustomer || isRoomServiceUser) {
+      return undefined;
+    }
+
     getSummary()
       .then((res) => setSummary(res.data))
       .catch(() => setSummary(null));
-  }, []);
+  }, [isCustomer, isRoomServiceUser]);
+
+  if (isCustomer) {
+    return <CustomerDashboardPage />;
+  }
+
+  if (isRoomServiceUser) {
+    return <RoomServiceDashboardPage />;
+  }
 
   const stats = [
     { key: 'rooms', label: 'Total Rooms', icon: 'bi-building', value: summary?.rooms ?? '-', trend: '+6% this week' },
