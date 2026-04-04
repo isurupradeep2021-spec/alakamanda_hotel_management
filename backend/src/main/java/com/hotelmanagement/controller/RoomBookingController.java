@@ -1,9 +1,11 @@
 package com.hotelmanagement.controller;
 
+import com.hotelmanagement.dto.PriceBreakdownDto;
 import com.hotelmanagement.entity.Room;
 import com.hotelmanagement.entity.RoomBooking;
 import com.hotelmanagement.repository.RoomBookingRepository;
 import com.hotelmanagement.repository.RoomRepository;
+import com.hotelmanagement.service.PricingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -23,6 +25,7 @@ public class RoomBookingController {
 
     private final RoomBookingRepository repository;
     private final RoomRepository roomRepository;
+    private final PricingService pricingService;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'CUSTOMER')")
@@ -137,6 +140,45 @@ public class RoomBookingController {
         );
     }
 
+    @PostMapping("/calculate-price")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'CUSTOMER')")
+    public PriceBreakdownDto calculatePrice(
+            @RequestParam Long roomId,
+            @RequestParam String checkInDate,
+            @RequestParam String checkOutDate) {
+        
+        LocalDate checkIn = LocalDate.parse(checkInDate);
+        LocalDate checkOut = LocalDate.parse(checkOutDate);
+        
+        return pricingService.calculatePrice(roomId, checkIn, checkOut);
+    }
+
+    @GetMapping("/{id}/price-breakdown")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'CUSTOMER')")
+    public PriceBreakdownDto getPriceBreakdown(@PathVariable Long id) {
+        RoomBooking booking = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Room booking not found"));
+        
+        Room room = roomRepository.findByRoomNumber(booking.getRoomNumber())
+                .orElseThrow(() -> new IllegalArgumentException("Room not found"));
+        
+        return pricingService.calculatePrice(room, booking.getCheckInDate(), booking.getCheckOutDate());
+    }
+
+    @GetMapping("/room/{roomNumber}/popularity")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'CUSTOMER')")
+    public Map<String, Object> getRoomPopularity(@PathVariable String roomNumber) {
+        String status = pricingService.getRoomPopularityStatus(roomNumber);
+        BigDecimal occupancyRate = pricingService.getRoomOccupancyRate(roomNumber);
+        
+        return Map.of(
+                "roomNumber", roomNumber,
+                "status", status,
+                "occupancyRate", occupancyRate,
+                "isPopular", "POPULAR".equals(status)
+        );
+    }
+
     private void validateDates(LocalDate checkIn, LocalDate checkOut) {
         if (checkIn == null || checkOut == null || !checkOut.isAfter(checkIn)) {
             throw new IllegalArgumentException("Invalid check-in/check-out dates");
@@ -158,13 +200,18 @@ public class RoomBookingController {
     }
 
     private BigDecimal calculateCost(RoomBooking booking, Room room) {
-        long nights = ChronoUnit.DAYS.between(booking.getCheckInDate(), booking.getCheckOutDate());
-        if (nights <= 0) {
-            return BigDecimal.ZERO;
+        try {
+            PriceBreakdownDto breakdown = pricingService.calculatePrice(room, booking.getCheckInDate(), booking.getCheckOutDate());
+            return breakdown.getTotalCost();
+        } catch (Exception e) {
+            // Fallback to simple calculation if pricing service fails
+            long nights = ChronoUnit.DAYS.between(booking.getCheckInDate(), booking.getCheckOutDate());
+            if (nights <= 0) {
+                return BigDecimal.ZERO;
+            }
+            BigDecimal nightly = room.getPricePerNight() == null ? BigDecimal.ZERO : room.getPricePerNight();
+            return nightly.multiply(BigDecimal.valueOf(nights));
         }
-
-        BigDecimal nightly = room.getPricePerNight() == null ? BigDecimal.ZERO : room.getPricePerNight();
-        return nightly.multiply(BigDecimal.valueOf(nights));
     }
 
     private void refreshRoomStatus(String roomNumber) {

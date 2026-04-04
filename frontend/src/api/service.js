@@ -31,6 +31,13 @@ export const checkoutRoomBooking = (id) => http.post(`/room-bookings/${id}/check
 export const deleteRoomBooking = (id) => http.delete(`/room-bookings/${id}`);
 export const roomBookingAnalytics = () => http.get("/room-bookings/analytics");
 export const completeRoomCleaning = (id) => http.post(`/rooms/${id}/complete-cleaning`);
+export const calculateRoomPrice = (roomId, checkInDate, checkOutDate) => http.post("/room-bookings/calculate-price", null, { params: { roomId, checkInDate, checkOutDate } });
+export const getRoomPopularity = (roomNumber) => http.get(`/room-bookings/room/${roomNumber}/popularity`);
+export const getSeasons = () => http.get("/seasons");
+export const getActiveSeasons = () => http.get("/seasons/active");
+export const createSeason = (payload) => http.post("/seasons", payload);
+export const updateSeason = (id, payload) => http.put(`/seasons/${id}`, payload);
+export const deleteSeason = (id) => http.delete(`/seasons/${id}`);
 
 export const getPayroll = () => http.get("/payroll");
 export const createPayroll = (payload) => http.post("/payroll", payload);
