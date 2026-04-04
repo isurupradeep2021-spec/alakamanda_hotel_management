@@ -4,6 +4,7 @@ export const loginApi = (payload) => http.post("/auth/login", payload);
 export const registerApi = (payload) => http.post("/auth/register", payload);
 
 export const getSummary = () => http.get("/dashboard/summary");
+export const getRoomBookingInsights = () => http.get("/dashboard/room-booking-insights");
 export const getUsers = () => http.get("/users");
 
 export const getRooms = () => http.get("/rooms");
