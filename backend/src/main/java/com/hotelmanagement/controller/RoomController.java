@@ -1,6 +1,8 @@
 package com.hotelmanagement.controller;
 
 import com.hotelmanagement.entity.Room;
+import com.hotelmanagement.entity.RoomBooking;
+import com.hotelmanagement.repository.RoomBookingRepository;
 import com.hotelmanagement.repository.RoomRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -16,6 +18,7 @@ import java.util.Map;
 public class RoomController {
 
     private final RoomRepository roomRepository;
+    private final RoomBookingRepository roomBookingRepository;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'CUSTOMER')")
@@ -75,10 +78,16 @@ public class RoomController {
     @GetMapping("/availability")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'CUSTOMER')")
     public Map<String, Object> availability(@RequestParam LocalDate checkIn, @RequestParam LocalDate checkOut) {
-        long total = roomRepository.count();
-        long available = roomRepository.findAll().stream()
-                .filter(Room::isAvailable)
-                .count();
+        if (checkIn == null || checkOut == null || !checkOut.isAfter(checkIn)) {
+            throw new IllegalArgumentException("Invalid check-in/check-out dates");
+        }
+
+        List<Room> rooms = roomRepository.findAll();
+        long total = rooms.size();
+        long available = rooms.stream()
+            .filter(room -> isRoomAvailableForDateRange(room, checkIn, checkOut))
+            .count();
+
         return Map.of(
                 "checkIn", checkIn,
                 "checkOut", checkOut,
@@ -86,6 +95,22 @@ public class RoomController {
                 "availableRooms", available
         );
     }
+
+        private boolean isRoomAvailableForDateRange(Room room, LocalDate checkIn, LocalDate checkOut) {
+        String status = room.getStatus() == null ? "" : room.getStatus();
+        if ("MAINTENANCE".equalsIgnoreCase(status) || "CLEANING".equalsIgnoreCase(status)) {
+            return false;
+        }
+
+        List<RoomBooking> bookings = roomBookingRepository.findByRoomNumber(room.getRoomNumber());
+        boolean hasOverlap = bookings.stream()
+            .filter(b -> b.getStatus() == null
+                || (!"CANCELLED".equalsIgnoreCase(b.getStatus())
+                && !"CHECKED_OUT".equalsIgnoreCase(b.getStatus())))
+            .anyMatch(b -> checkIn.isBefore(b.getCheckOutDate()) && checkOut.isAfter(b.getCheckInDate()));
+
+        return !hasOverlap;
+        }
 
     private void syncAvailabilityWithStatus(Room room) {
         if (room.getStatus() == null || room.getStatus().isBlank()) {

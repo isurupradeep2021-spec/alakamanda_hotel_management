@@ -21,6 +21,7 @@ import {
     getRooms,
     getRoomBookings,
     getRoomPopularity,
+    roomAvailability,
     payrollSummary,
     roomBookingAnalytics,
     updateDiningBooking,
@@ -79,6 +80,8 @@ function OperationsPage({ type }) {
     const [form, setForm] = useState(empty[type] || {});
     const [bookingForm, setBookingForm] = useState(empty.roomBooking);
     const [priceBreakdown, setPriceBreakdown] = useState(null);
+    const [availabilityInfo, setAvailabilityInfo] = useState(null);
+    const [availabilityFailed, setAvailabilityFailed] = useState(false);
     const [roomPopularity, setRoomPopularity] = useState(null);
     const [editId, setEditId] = useState(null);
     const [searchQuery, setSearchQuery] = useState("");
@@ -251,7 +254,21 @@ function OperationsPage({ type }) {
                     .then((res) => setRoomPopularity(res.data))
                     .catch(() => setRoomPopularity(null));
             }
+
+            roomAvailability(bookingForm.checkInDate, bookingForm.checkOutDate)
+                .then((res) => {
+                    setAvailabilityInfo(res.data);
+                    setAvailabilityFailed(false);
+                })
+                .catch(() => {
+                    setAvailabilityInfo(null);
+                    setAvailabilityFailed(true);
+                });
+            return;
         }
+
+        setAvailabilityInfo(null);
+        setAvailabilityFailed(false);
     }, [bookingForm.roomNumber, bookingForm.checkInDate, bookingForm.checkOutDate, rows]);
 
     const handleDelete = async (row) => {
@@ -574,30 +591,51 @@ function OperationsPage({ type }) {
                                 required
                             />
 
+                            <div
+                                className="summary-card signature-card"
+                                style={{ gridColumn: "1 / -1", marginTop: "8px", padding: "14px", border: "1px solid var(--accent-gold)", backgroundColor: "rgba(255, 255, 255, 0.04)" }}
+                            >
+                                {!bookingForm.checkInDate || !bookingForm.checkOutDate ? (
+                                    <div style={{ fontWeight: 600 }}>Select check-in and check-out dates to see live availability.</div>
+                                ) : availabilityInfo ? (
+                                    <>
+                                        <div style={{ fontWeight: 600, marginBottom: "6px" }}>Available Rooms: {availabilityInfo.availableRooms}</div>
+                                        {availabilityInfo.availableRooms === 1 && <div style={{ color: "#dc2626", fontWeight: 600 }}>Only 1 room left</div>}
+                                        {availabilityInfo.availableRooms === 2 && <div style={{ color: "#ffd27f", fontWeight: 600 }}>Only 2 rooms left</div>}
+                                    </>
+                                ) : availabilityFailed ? (
+                                    <div style={{ color: "#ffcc66", fontWeight: 600 }}>Live availability is temporarily unavailable.</div>
+                                ) : (
+                                    <div style={{ fontWeight: 600 }}>Checking availability...</div>
+                                )}
+                            </div>
+
                             {priceBreakdown && (
                                 <div
                                     className="summary-card signature-card"
                                     style={{ gridColumn: "1 / -1", marginTop: "16px", padding: "16px", border: "1px solid var(--accent-gold)", backgroundColor: "rgba(212, 175, 55, 0.08)" }}
                                 >
                                     <p className="eyebrow" style={{ marginBottom: "12px" }}>
-                                        💰 Dynamic Pricing {roomPopularity?.isPopular && "⭐ POPULAR ROOM"}
+                                        Dynamic Pricing {roomPopularity?.isPopular && "POPULAR ROOM"}
                                     </p>
-                                    <div style={{ fontSize: "0.85rem", lineHeight: "1.6", color: "rgba(255,255,255,0.9)" }}>
-                                        <div style={{ marginBottom: "8px" }}>
-                                            📅 Stay Duration: <strong>{priceBreakdown.numberOfNights} nights</strong>
-                                        </div>
-                                        <div style={{ marginBottom: "8px" }}>
-                                            📊 Weekdays ({priceBreakdown.weekdayNights}): ${priceBreakdown.weekdayCost?.toFixed(2)}
-                                        </div>
-                                        <div style={{ marginBottom: "8px" }}>
-                                            🌙 Weekends ({priceBreakdown.weekendNights}): ${priceBreakdown.weekendCost?.toFixed(2)}
-                                        </div>
-                                        {priceBreakdown.seasonalMultiplier && (
-                                            <div style={{ marginBottom: "8px" }}>
-                                                🎉 Seasonal ({(priceBreakdown.seasonalMultiplier - 1) * 100}%): +${priceBreakdown.seasonalAdjustment?.toFixed(2)}
-                                            </div>
-                                        )}
-                                        {roomPopularity?.isPopular && <div style={{ marginBottom: "8px" }}>⭐ Popular Room (+15%): +${priceBreakdown.popularityPremium?.toFixed(2)}</div>}
+                                    <div style={{ fontSize: "0.85rem", lineHeight: "1.6", color: "var(--charcoal)" }}>
+                                        <ul style={{ margin: 0, paddingLeft: "18px" }}>
+                                            <li style={{ marginBottom: "6px" }}>
+                                                Stay Duration: <strong>{priceBreakdown.numberOfNights} nights</strong>
+                                            </li>
+                                            <li style={{ marginBottom: "6px" }}>
+                                                Weekdays ({priceBreakdown.weekdayNights}): ${priceBreakdown.weekdayCost?.toFixed(2)}
+                                            </li>
+                                            <li style={{ marginBottom: "6px" }}>
+                                                Weekends ({priceBreakdown.weekendNights}): ${priceBreakdown.weekendCost?.toFixed(2)}
+                                            </li>
+                                            {priceBreakdown.seasonalMultiplier && (
+                                                <li style={{ marginBottom: "6px" }}>
+                                                    Seasonal ({(priceBreakdown.seasonalMultiplier - 1) * 100}%): +${priceBreakdown.seasonalAdjustment?.toFixed(2)}
+                                                </li>
+                                            )}
+                                        </ul>
+                                        {roomPopularity?.isPopular && <div style={{ marginBottom: "8px" }}>Popular Room (+15%): +${priceBreakdown.popularityPremium?.toFixed(2)}</div>}
                                         <div
                                             style={{
                                                 marginTop: "12px",
@@ -608,10 +646,10 @@ function OperationsPage({ type }) {
                                                 color: "var(--accent-gold)",
                                             }}
                                         >
-                                            💵 Total: ${priceBreakdown.totalCost?.toFixed(2)}
+                                            Total: ${priceBreakdown.totalCost?.toFixed(2)}
                                         </div>
                                         {roomPopularity && (
-                                            <div style={{ marginTop: "8px", fontSize: "0.8rem", color: "rgba(255,255,255,0.7)" }}>Occupancy Rate: {roomPopularity.occupancyRate?.toFixed(0)}%</div>
+                                            <div style={{ marginTop: "8px", fontSize: "0.8rem", color: "var(--charcoal-soft)" }}>Occupancy Rate: {roomPopularity.occupancyRate?.toFixed(0)}%</div>
                                         )}
                                     </div>
                                 </div>
