@@ -395,9 +395,11 @@ public class PayrollAutomationService {
                 .filter(room -> room.getStatus() == null || !"MAINTENANCE".equalsIgnoreCase(room.getStatus()))
                 .toList();
         List<RoomBooking> myRoomBookings = roomBookingRepository.findByCustomerEmailIgnoreCaseOrderByCheckInDateDesc(email);
-        List<EventBooking> myEvents = nameKey.isBlank()
+        List<EventBooking> myEvents = !email.isBlank()
+                ? eventBookingRepository.findByCustomerEmailContainingIgnoreCaseOrderByEventDateTimeDesc(email)
+                : (nameKey.isBlank()
                 ? Collections.emptyList()
-                : eventBookingRepository.findByCustomerNameContainingIgnoreCaseOrderByEventDateTimeDesc(nameKey);
+                : eventBookingRepository.findByCustomerNameContainingIgnoreCaseOrderByEventDateTimeDesc(nameKey));
         List<DiningBooking> myDining = diningBookingRepository.findByContactContainingIgnoreCaseOrderByBookingDateTimeDesc(email);
 
         if (containsAny(q, "room", "rooms", "stay", "book room")) {
@@ -436,7 +438,7 @@ public class PayrollAutomationService {
             return "You have " + myEvents.size() + " event booking(s). Latest: "
                     + Optional.ofNullable(latest.getEventType()).orElse("Event")
                     + " at " + Optional.ofNullable(latest.getHallName()).orElse("hall pending")
-                    + " on " + latest.getEventDateTime()
+                    + " from " + latest.getEventDateTime() + " to " + latest.getEndDateTime()
                     + ", status: " + Optional.ofNullable(latest.getStatus()).orElse("INQUIRY") + ".";
         }
 

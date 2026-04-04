@@ -11,3 +11,10 @@ frontend/dist/
 # IDE
 .idea/
 *.iml
+
+
+*.log
+
+backend/package-lock.json
+
+backend/database/

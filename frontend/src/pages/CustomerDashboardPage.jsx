@@ -30,8 +30,12 @@ function CustomerDashboardPage() {
   );
 
   const myEventBookings = useMemo(
-    () => eventBookings.filter((b) => (b.customerName || '').toLowerCase().includes((user?.fullName || '').toLowerCase())),
-    [eventBookings, user?.fullName]
+    () => eventBookings.filter((b) => {
+      const bookingEmail = (b.customerEmail || '').toLowerCase();
+      const bookingName = (b.customerName || '').toLowerCase();
+      return bookingEmail === (user?.email || '').toLowerCase() || bookingName.includes((user?.fullName || '').toLowerCase());
+    }),
+    [eventBookings, user?.email, user?.fullName]
   );
 
   const myDiningBookings = useMemo(
@@ -164,8 +168,9 @@ function CustomerDashboardPage() {
                 <tr>
                   <th>Event Type</th>
                   <th>Hall / Venue</th>
-                  <th>Date & Time</th>
-                  <th>Attendees</th>
+                  <th>Start</th>
+                  <th>End</th>
+                  <th>Duration</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -175,7 +180,8 @@ function CustomerDashboardPage() {
                     <td style={{fontWeight: '600'}}>{b.eventType}</td>
                     <td>{b.hallName}</td>
                     <td>{new Date(b.eventDateTime).toLocaleString()}</td>
-                    <td>{b.attendees} People</td>
+                    <td>{b.endDateTime ? new Date(b.endDateTime).toLocaleString() : '-'}</td>
+                    <td>{b.durationHours ? `${b.durationHours} hrs` : '-'}</td>
                     <td><span className={`room-status-badge ${b.status === 'CONFIRMED' ? 'ok' : ''}`}>{b.status}</span></td>
                   </tr>
                 ))}
