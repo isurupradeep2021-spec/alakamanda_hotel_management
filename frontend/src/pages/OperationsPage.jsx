@@ -119,6 +119,16 @@ function OperationsPage({ type }) {
             nextForm.contact = user.email || "";
         }
         setForm(nextForm);
+
+        // Auto-fill room booking form for customers
+        if (type === "rooms" && user?.role === ROLES.CUSTOMER) {
+            setBookingForm({
+                ...empty.roomBooking,
+                customerName: user.fullName || "",
+                customerEmail: user.email || "",
+            });
+        }
+
         load();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [type, user?.role, user?.fullName, user?.email]);
@@ -465,6 +475,14 @@ function OperationsPage({ type }) {
                             <input placeholder="Room Number" value={bookingForm.roomNumber} onChange={(e) => setBookingForm({ ...bookingForm, roomNumber: e.target.value })} required />
                             <input type="date" value={bookingForm.checkInDate} onChange={(e) => setBookingForm({ ...bookingForm, checkInDate: e.target.value })} required />
                             <input type="date" value={bookingForm.checkOutDate} onChange={(e) => setBookingForm({ ...bookingForm, checkOutDate: e.target.value })} required />
+                            <input
+                                type="number"
+                                placeholder="Number of Guests"
+                                min="1"
+                                value={bookingForm.guestCount}
+                                onChange={(e) => setBookingForm({ ...bookingForm, guestCount: Number(e.target.value) })}
+                                required
+                            />
 
                             {priceBreakdown && (
                                 <div
