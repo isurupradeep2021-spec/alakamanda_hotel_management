@@ -1,17 +1,47 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString, Length } from 'class-validator';
+import {
+  IsEmail,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
 import { StaffRole } from '../staff.entity';
 
 export class CreateStaffDto {
   @IsNotEmpty()
   @IsString()
-  @Length(1, 100)
-  name: string;
+  fullName: string;
 
-  @IsEnum(StaffRole)
+  @IsEmail()
+  email: string;
+
+  @IsNotEmpty()
+  @IsString()
+  @MinLength(8)
+  password: string;
+
+  @IsEnum(StaffRole, { message: 'role must be HOUSEKEEPER or MAINTENANCE_STAFF' })
   role: StaffRole;
 
   @IsOptional()
   @IsString()
-  @Length(0, 20)
-  contactNumber?: string;
+  employeeId?: string;
+
+  @IsOptional()
+  @IsString()
+  employmentRole?: string;
+
+  @IsOptional()
+  @IsNumber()
+  basicSalary?: number;
+
+  @IsOptional()
+  @IsString()
+  joinDate?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
 }

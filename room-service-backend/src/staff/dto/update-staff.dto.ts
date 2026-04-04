@@ -1,18 +1,36 @@
-import { IsEnum, IsOptional, IsString, Length } from 'class-validator';
-import { StaffRole } from '../staff.entity';
+import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
+import { EmploymentStatus, StaffRole } from '../staff.entity';
 
 export class UpdateStaffDto {
   @IsOptional()
   @IsString()
-  @Length(1, 100)
-  name?: string;
+  fullName?: string;
 
   @IsOptional()
-  @IsEnum(StaffRole)
+  @IsEnum(StaffRole, { message: 'role must be HOUSEKEEPER or MAINTENANCE_STAFF' })
   role?: StaffRole;
 
   @IsOptional()
   @IsString()
-  @Length(0, 20)
-  contactNumber?: string;
+  employeeId?: string;
+
+  @IsOptional()
+  @IsString()
+  employmentRole?: string;
+
+  @IsOptional()
+  @IsNumber()
+  basicSalary?: number;
+
+  @IsOptional()
+  @IsString()
+  joinDate?: string;
+
+  @IsOptional()
+  @IsEnum(EmploymentStatus)
+  employmentStatus?: EmploymentStatus;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
 }

@@ -1,34 +1,63 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  OneToMany,
-} from 'typeorm';
+import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+
+/**
+ * Maps to the shared `users` table managed by the Spring Boot backend.
+ * synchronize: false ensures NestJS never alters this table's schema.
+ */
 
 export enum StaffRole {
   HOUSEKEEPER = 'HOUSEKEEPER',
   MAINTENANCE_STAFF = 'MAINTENANCE_STAFF',
 }
 
-@Entity('staff')
+export enum EmploymentStatus {
+  ACTIVE = 'ACTIVE',
+  ON_LEAVE = 'ON_LEAVE',
+  INACTIVE = 'INACTIVE',
+}
+
+@Entity({ name: 'users', synchronize: false })
 export class Staff {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn({ type: 'bigint' })
   id: number;
 
-  @Column({ length: 100 })
-  name: string;
+  @Column({ name: 'full_name' })
+  fullName: string;
 
-  @Column({ type: 'enum', enum: StaffRole })
+  @Column({ unique: true })
+  email: string;
+
+  @Column()
+  password: string;
+
+  @Column({ type: 'varchar' })
   role: StaffRole;
 
-  @Column({ length: 20, nullable: true })
-  contactNumber: string;
+  @Column({ name: 'employee_id', unique: true, nullable: true })
+  employeeId: string;
 
-  @CreateDateColumn()
-  createdAt: Date;
+  @Column({ name: 'employment_role', nullable: true })
+  employmentRole: string;
 
-  @UpdateDateColumn()
-  updatedAt: Date;
+  @Column({
+    name: 'basic_salary',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
+  basicSalary: number;
+
+  @Column({ name: 'join_date', type: 'date', nullable: true })
+  joinDate: string;
+
+  @Column({
+    name: 'employment_status',
+    type: 'varchar',
+    default: EmploymentStatus.ACTIVE,
+  })
+  employmentStatus: EmploymentStatus;
+
+  @Column({ nullable: true })
+  phone: string;
 }

@@ -26,6 +26,7 @@ export class StaffController {
   @Post()
   @Roles('ADMIN', 'MANAGER')
   create(@Body() dto: CreateStaffDto) {
+    // dto.role is validated to only accept HOUSEKEEPER or MAINTENANCE_STAFF
     return this.staffService.create(dto);
   }
 
@@ -51,6 +52,7 @@ export class StaffController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @Roles('ADMIN', 'MANAGER')
   remove(@Param('id', ParseIntPipe) id: number) {
+    // Only deletes users whose role is HOUSEKEEPER or MAINTENANCE_STAFF
     return this.staffService.remove(id);
   }
 }

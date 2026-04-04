@@ -56,9 +56,15 @@ const maintenanceInitialForm = {
 };
 
 const staffInitialForm = {
-  name: '',
+  fullName: '',
+  email: '',
+  password: '',
   role: 'HOUSEKEEPER',
-  contactNumber: ''
+  employeeId: '',
+  employmentRole: '',
+  basicSalary: '',
+  joinDate: '',
+  phone: ''
 };
 
 function formatLabel(value) {
@@ -358,7 +364,7 @@ export function HousekeepingOperationsPage() {
               <select id="housekeeping-staff" value={form.staffId} onChange={(event) => setForm({ ...form, staffId: event.target.value })}>
                 <option value="">Unassigned</option>
                 {staff.filter((member) => member.role === 'HOUSEKEEPER').map((member) => (
-                  <option key={member.id} value={member.id}>{member.name}</option>
+                  <option key={member.id} value={member.id}>{member.fullName}</option>
                 ))}
               </select>
             </div>
@@ -425,7 +431,7 @@ export function HousekeepingOperationsPage() {
                   <td>{formatLabel(task.taskType)}</td>
                   <td><StatusBadge value={task.status} /></td>
                   <td><StatusBadge value={task.priority} /></td>
-                  <td>{task.staff?.name || 'Unassigned'}</td>
+                  <td>{task.staff?.fullName || 'Unassigned'}</td>
                   <td>{formatDateTime(task.deadline)}</td>
                   <td>
                     <div className="room-service-table-actions">
@@ -616,7 +622,7 @@ export function MaintenanceOperationsPage() {
               <select id="maintenance-staff" value={form.staffId} onChange={(event) => setForm({ ...form, staffId: event.target.value })}>
                 <option value="">Unassigned</option>
                 {staff.filter((member) => member.role === 'MAINTENANCE_STAFF').map((member) => (
-                  <option key={member.id} value={member.id}>{member.name}</option>
+                  <option key={member.id} value={member.id}>{member.fullName}</option>
                 ))}
               </select>
             </div>
@@ -689,7 +695,7 @@ export function MaintenanceOperationsPage() {
                   <td>{formatLabel(ticket.facilityType)}</td>
                   <td><StatusBadge value={ticket.status} /></td>
                   <td><StatusBadge value={ticket.priority} /></td>
-                  <td>{ticket.staff?.name || 'Unassigned'}</td>
+                  <td>{ticket.staff?.fullName || 'Unassigned'}</td>
                   <td>{formatDateTime(ticket.deadline)}</td>
                   <td>
                     <div className="room-service-table-actions">
@@ -732,7 +738,7 @@ export function RoomServiceStaffPage() {
       return false;
     }
 
-    if (searchTerm && !member.name?.toLowerCase().includes(searchTerm.toLowerCase())) {
+    if (searchTerm && !member.fullName?.toLowerCase().includes(searchTerm.toLowerCase())) {
       return false;
     }
 
@@ -749,9 +755,15 @@ export function RoomServiceStaffPage() {
   const beginEdit = (member) => {
     setEditingMember(member);
     setForm({
-      name: member.name || '',
+      fullName: member.fullName || '',
+      email: member.email || '',
+      password: '',
       role: member.role || 'HOUSEKEEPER',
-      contactNumber: member.contactNumber || ''
+      employeeId: member.employeeId || '',
+      employmentRole: member.employmentRole || '',
+      basicSalary: member.basicSalary ?? '',
+      joinDate: member.joinDate || '',
+      phone: member.phone || ''
     });
     setError('');
     setShowForm(true);
@@ -761,18 +773,33 @@ export function RoomServiceStaffPage() {
     event.preventDefault();
     setError('');
 
-    if (!form.name.trim()) {
+    if (!form.fullName.trim()) {
       setError('Full name is required.');
+      return;
+    }
+
+    if (!editingMember && (!form.email.trim() || !form.password.trim())) {
+      setError('Email and password are required when creating a new staff member.');
       return;
     }
 
     setSubmitting(true);
 
+    const basePayload = {
+      fullName: form.fullName.trim(),
+      role: form.role,
+      employeeId: form.employeeId || undefined,
+      employmentRole: form.employmentRole || undefined,
+      basicSalary: form.basicSalary !== '' ? Number(form.basicSalary) : undefined,
+      joinDate: form.joinDate || undefined,
+      phone: form.phone || undefined,
+    };
+
     try {
       if (editingMember) {
-        await updateRoomServiceStaff(editingMember.id, form);
+        await updateRoomServiceStaff(editingMember.id, basePayload);
       } else {
-        await createRoomServiceStaff(form);
+        await createRoomServiceStaff({ ...basePayload, email: form.email.trim(), password: form.password });
       }
 
       setShowForm(false);
@@ -787,7 +814,7 @@ export function RoomServiceStaffPage() {
   };
 
   const removeMember = async (member) => {
-    if (!globalThis.confirm(`Delete staff member ${member.name}?`)) {
+    if (!globalThis.confirm(`Delete staff member ${member.fullName}?`)) {
       return;
     }
 
@@ -816,7 +843,7 @@ export function RoomServiceStaffPage() {
           <form className="crud-form room-service-form" onSubmit={submit}>
             <div>
               <label htmlFor="room-service-staff-name">Full Name</label>
-              <input id="room-service-staff-name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required />
+              <input id="room-service-staff-name" value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} required />
             </div>
             <div>
               <label htmlFor="room-service-staff-role">Role</label>
@@ -824,9 +851,37 @@ export function RoomServiceStaffPage() {
                 {staffRoleOptions.map((option) => <option key={option} value={option}>{formatLabel(option)}</option>)}
               </select>
             </div>
+            {!editingMember && (
+              <>
+                <div>
+                  <label htmlFor="room-service-staff-email">Email</label>
+                  <input id="room-service-staff-email" type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required />
+                </div>
+                <div>
+                  <label htmlFor="room-service-staff-password">Password</label>
+                  <input id="room-service-staff-password" type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} required minLength={8} />
+                </div>
+              </>
+            )}
             <div>
-              <label htmlFor="room-service-staff-contact">Contact Number</label>
-              <input id="room-service-staff-contact" value={form.contactNumber} onChange={(event) => setForm({ ...form, contactNumber: event.target.value })} />
+              <label htmlFor="room-service-staff-employee-id">Employee ID</label>
+              <input id="room-service-staff-employee-id" value={form.employeeId} onChange={(event) => setForm({ ...form, employeeId: event.target.value })} />
+            </div>
+            <div>
+              <label htmlFor="room-service-staff-emp-role">Employment Role</label>
+              <input id="room-service-staff-emp-role" value={form.employmentRole} onChange={(event) => setForm({ ...form, employmentRole: event.target.value })} placeholder="e.g. Cleaner, Technician" />
+            </div>
+            <div>
+              <label htmlFor="room-service-staff-phone">Phone</label>
+              <input id="room-service-staff-phone" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
+            </div>
+            <div>
+              <label htmlFor="room-service-staff-salary">Basic Salary</label>
+              <input id="room-service-staff-salary" type="number" min="0" step="0.01" value={form.basicSalary} onChange={(event) => setForm({ ...form, basicSalary: event.target.value })} />
+            </div>
+            <div>
+              <label htmlFor="room-service-staff-join-date">Join Date</label>
+              <input id="room-service-staff-join-date" type="date" value={form.joinDate} onChange={(event) => setForm({ ...form, joinDate: event.target.value })} />
             </div>
             {error ? <div className="inline-error room-service-form-span">{error}</div> : null}
             <div className="room-service-actions room-service-form-span">
@@ -851,23 +906,27 @@ export function RoomServiceStaffPage() {
             <thead>
               <tr>
                 <th>Name</th>
+                <th>Email</th>
                 <th>Role</th>
-                <th>Contact</th>
-                <th>Created</th>
+                <th>Employee ID</th>
+                <th>Phone</th>
+                <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredStaff.length === 0 ? (
                 <tr>
-                  <td colSpan={5}><EmptyState message="No room-service staff members match the current filters." /></td>
+                  <td colSpan={7}><EmptyState message="No room-service staff members match the current filters." /></td>
                 </tr>
               ) : filteredStaff.map((member) => (
                 <tr key={member.id}>
-                  <td>{member.name}</td>
+                  <td>{member.fullName}</td>
+                  <td>{member.email || '-'}</td>
                   <td><StatusBadge value={member.role} /></td>
-                  <td>{member.contactNumber || '-'}</td>
-                  <td>{formatDateTime(member.createdAt)}</td>
+                  <td>{member.employeeId || '-'}</td>
+                  <td>{member.phone || '-'}</td>
+                  <td><StatusBadge value={member.employmentStatus} /></td>
                   <td>
                     <div className="room-service-table-actions">
                       <button type="button" className="secondary-action room-service-inline-button" onClick={() => beginEdit(member)}>Edit</button>
