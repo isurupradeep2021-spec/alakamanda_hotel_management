@@ -105,12 +105,24 @@ function RestaurantDetailsPage() {
             {restaurant.longDescription}
           </p>
 
-          <div style={{display: 'flex', gap: '20px', marginBottom: '40px'}}>
-            <button className="primary-btn" style={{display: 'flex', alignItems: 'center', gap: '8px'}} onClick={() => alert("Menu PDF would open here")}>
-              <i className="bi bi-file-earmark-pdf" /> View Full Menu
-            </button>
-            <button className="secondary-btn" onClick={() => navigate('/view-menu')}>
-               Back to All Restaurants
+          <div className="menu-action-row" style={{marginBottom: '40px'}}>
+            <a
+              href={restaurant.menuPdf}
+              target="_blank"
+              rel="noreferrer"
+              className="menu-action-btn"
+            >
+              <i className="bi bi-file-earmark-richtext" /> View Full Menu
+            </a>
+            <a
+              href={restaurant.menuPdf}
+              download={`${restaurant.name.toLowerCase().replace(/\s+/g, '-')}-menu.pdf`}
+              className="menu-action-btn secondary"
+            >
+              <i className="bi bi-download" /> Download Menu
+            </a>
+            <button className="menu-action-btn secondary" onClick={() => navigate('/view-menu')}>
+              <i className="bi bi-arrow-left" /> Back to All Restaurants
             </button>
           </div>
 
@@ -142,8 +154,8 @@ function RestaurantDetailsPage() {
                 </div>
                 
                 <div className="form-group">
-                  <label>Contact Number (or Room #)</label>
-                  <input type="text" required value={form.contact} onChange={e => setForm({...form, contact: e.target.value})} placeholder="+1 234 567 890" />
+                  <label>Contact (Email or Phone)</label>
+                  <input type="text" required value={form.contact} onChange={e => setForm({...form, contact: e.target.value})} placeholder="john@email.com or +1 234 567 890" />
                 </div>
 
                 <div className="form-grid" style={{gridTemplateColumns: '1fr 1fr'}}>
@@ -154,11 +166,18 @@ function RestaurantDetailsPage() {
                   <div className="form-group">
                     <label>Meal</label>
                     <select value={form.category} onChange={e => setForm({...form, category: e.target.value})}>
+                      <option>Breakfast</option>
                       <option>Lunch</option>
                       <option>Dinner</option>
-                      <option>Drinks</option>
+                      <option>Desserts</option>
+                      <option>Beverages</option>
                     </select>
                   </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Preferred Table Number (Optional)</label>
+                  <input type="number" min="1" value={form.tableNumber} onChange={e => setForm({...form, tableNumber: Number(e.target.value)})} />
                 </div>
 
                 <div className="form-group">

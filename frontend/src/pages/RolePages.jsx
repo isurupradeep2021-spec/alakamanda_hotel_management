@@ -2,16 +2,18 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
+  createStaffMember,
+  deleteStaffMember,
   diningAnalytics,
   eventAnalytics,
   getDiningBookings,
   getEventBookings,
   getRoomBookings,
+  getStaffMembers,
   getSummary,
-  getUsers,
   payrollSummary,
   roomBookingAnalytics,
-  registerApi
+  updateStaffMember
 } from '../api/service';
 import { useAuth } from '../context/AuthContext';
 import { registrationRoles, ROLES, toBackendRole } from '../auth/role';
@@ -92,23 +94,76 @@ function Hero({ eyebrow, title, subtitle, chipIcon, chipLabel }) {
 }
 
 export function UserManagementPage() {
-  const [users, setUsers] = useState([]);
+  const [staffMembers, setStaffMembers] = useState([]);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ fullName: '', email: '', password: '', role: ROLES.STAFF_MEMBER });
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState({
+    fullName: '',
+    email: '',
+    password: '',
+    employeeCode: '',
+    department: '',
+    role: 'STAFF',
+    baseSalary: '',
+    phone: '',
+    employmentStatus: 'ACTIVE'
+  });
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   const load = () => {
-    getUsers().then((res) => setUsers(res.data || [])).catch(() => setUsers([]));
+    getStaffMembers().then((res) => setStaffMembers(res.data || [])).catch(() => setStaffMembers([]));
   };
 
   useEffect(() => {
     load();
   }, []);
 
-  const handleCreateUser = async (e) => {
+  const resetForm = () => {
+    setForm({
+      fullName: '',
+      email: '',
+      password: '',
+      employeeCode: '',
+      department: '',
+      role: 'STAFF',
+      baseSalary: '',
+      phone: '',
+      employmentStatus: 'ACTIVE'
+    });
+    setEditingId(null);
+  };
+
+  const handleSaveStaff = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     try {
+      const payload = {
+        fullName: form.fullName,
+        email: form.email,
+        employeeCode: form.employeeCode,
+        department: form.department,
+        baseSalary: Number(form.baseSalary || 0),
+        phone: form.phone,
+        employmentStatus: form.employmentStatus
+      };
+
+      if (editingId) {
+        await updateStaffMember(editingId, {
+          ...payload,
+          password: form.password || undefined
+        });
+        setSuccess('Staff member updated successfully');
+      } else {
+        await createStaffMember({
+          ...payload,
+          password: form.password,
+          role: 'STAFF'
+        });
+        setSuccess('Staff member created successfully');
+      }
+      resetForm();
       await registerApi({
         ...form,
         role: toBackendRole(form.role)
@@ -117,63 +172,124 @@ export function UserManagementPage() {
       setShowForm(false);
       load();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create user');
+      setError(err.response?.data?.message || 'Failed to save staff member');
     }
   };
 
-  const roles = useMemo(() => new Set(users.map((u) => u.role)).size, [users]);
+  const totalSalary = useMemo(
+    () => staffMembers.reduce((sum, item) => sum + Number(item.basicSalary || 0), 0),
+    [staffMembers]
+  );
+
+  const onEdit = (row) => {
+    setEditingId(row.id);
+    setShowForm(true);
+    setError('');
+    setSuccess('');
+    setForm({
+      fullName: row.fullName || '',
+      email: row.email || '',
+      password: '',
+      employeeCode: row.employeeId || '',
+      department: row.employmentRole || '',
+      role: 'STAFF',
+      baseSalary: row.basicSalary ?? '',
+      phone: row.phone || '',
+      employmentStatus: row.employmentStatus || 'ACTIVE'
+    });
+  };
+
+  const onDelete = async (id) => {
+    setError('');
+    setSuccess('');
+    try {
+      await deleteStaffMember(id);
+      setSuccess('Staff member deleted/deactivated');
+      load();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to delete staff member');
+    }
+  };
 
   return (
     <div className="module-page dashboard-luxe">
       <Hero
         eyebrow="Admin Control"
-        title="User Management"
-        subtitle="Manage account visibility and monitor role distribution."
+        title="Staff Management"
+        subtitle="Add, update, and remove staff records used by payroll automation."
         chipIcon="bi-people"
-        chipLabel="Secure Access"
+        chipLabel="Payroll Ready"
       />
 
       <div className="summary-grid premium-grid dashboard-kpis">
-        <article className="summary-card premium-card signature-card"><div className="kpi-top"><i className="bi bi-people" /><span>Total Users</span></div><h3>{users.length}</h3><p><i className="bi bi-graph-up-arrow" /> Active accounts</p></article>
-        <article className="summary-card premium-card signature-card"><div className="kpi-top"><i className="bi bi-person-badge" /><span>Roles</span></div><h3>{roles}</h3><p><i className="bi bi-shield-lock" /> Permission groups</p></article>
+        <article className="summary-card premium-card signature-card"><div className="kpi-top"><i className="bi bi-people" /><span>Total Staff</span></div><h3>{staffMembers.length}</h3><p><i className="bi bi-graph-up-arrow" /> Registered employees</p></article>
+        <article className="summary-card premium-card signature-card"><div className="kpi-top"><i className="bi bi-cash-stack" /><span>Total Base Salary</span></div><h3>{totalSalary.toFixed(2)}</h3><p><i className="bi bi-receipt" /> Monthly baseline</p></article>
       </div>
 
       <div className="table-wrap ops-table-wrap">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h3 className="ops-table-title" style={{ margin: 0 }}>User Directory</h3>
+          <h3 className="ops-table-title" style={{ margin: 0 }}>Staff Directory</h3>
           <button type="button" className="primary-action" onClick={() => setShowForm(!showForm)}>
-            {showForm ? 'Cancel' : '+ Add Employee'}
+            {showForm ? 'Cancel' : '+ Add Staff'}
           </button>
         </div>
         
         {error && <div className="inline-error" style={{ marginBottom: '16px' }}>{error}</div>}
+        {success && <div className="inline-success" style={{ marginBottom: '16px' }}>{success}</div>}
         
         {showForm && (
-          <form className="crud-form premium-form" onSubmit={handleCreateUser} style={{ marginBottom: '24px', padding: '16px', border: '1px solid var(--border-color)' }}>
-            <h4 style={{ marginBottom: '12px' }}>Create New Employee</h4>
+          <form className="crud-form premium-form" onSubmit={handleSaveStaff} style={{ marginBottom: '24px', padding: '16px', border: '1px solid var(--border-color)' }}>
+            <h4 style={{ marginBottom: '12px' }}>{editingId ? 'Update Staff Member' : 'Create New Staff Member'}</h4>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
               <input placeholder="Full Name" value={form.fullName} onChange={e => setForm({...form, fullName: e.target.value})} required />
               <input type="email" placeholder="Email Address" value={form.email} onChange={e => setForm({...form, email: e.target.value})} required />
+              <input
+                type="password"
+                placeholder={editingId ? 'Password (optional)' : 'Password'}
+                value={form.password}
+                onChange={e => setForm({...form, password: e.target.value})}
+                required={!editingId}
+              />
+              <input placeholder="Employee Code (e.g. STF-010)" value={form.employeeCode} onChange={e => setForm({...form, employeeCode: e.target.value})} required />
+              <input placeholder="Position / Department" value={form.department} onChange={e => setForm({...form, department: e.target.value})} required />
+              <input type="number" min="0" step="0.01" placeholder="Base Salary" value={form.baseSalary} onChange={e => setForm({...form, baseSalary: e.target.value})} required />
+              <input placeholder="Contact Number" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} />
+              <select value={form.employmentStatus} onChange={e => setForm({...form, employmentStatus: e.target.value})}>
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="ON_LEAVE">ON LEAVE</option>
+                <option value="INACTIVE">INACTIVE</option>
               <input type="password" placeholder="Password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} required />
               <select value={form.role} onChange={e => setForm({...form, role: e.target.value})} required>
                 {registrationRoles.map((role) => (
                   <option key={role} value={role}>{role}</option>
                 ))}
               </select>
+              <input value="STAFF" readOnly />
             </div>
-            <button type="submit" className="primary-action" style={{ marginTop: '16px' }}>Securely Create User</button>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
+              <button type="submit" className="primary-action">{editingId ? 'Update Staff' : 'Create Staff'}</button>
+              {editingId && (
+                <button type="button" className="secondary-btn" onClick={resetForm}>Cancel Edit</button>
+              )}
+            </div>
           </form>
         )}
 
         <table className="data-table">
-          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Phone</th></tr></thead>
+          <thead><tr><th>Name</th><th>Email</th><th>Employee Code</th><th>Position</th><th>Base Salary</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
-            {users.map((u) => (
+            {staffMembers.map((u) => (
               <tr key={u.id}>
                 <td>{u.fullName}</td>
                 <td>{u.email}</td>
-                <td>{u.role}</td>
-                <td>{u.phone || '-'}</td>
+                <td>{u.employeeId || '-'}</td>
+                <td>{u.employmentRole || '-'}</td>
+                <td>{u.basicSalary ?? 0}</td>
+                <td>{u.employmentStatus || '-'}</td>
+                <td>
+                  <button type="button" className="secondary-btn" style={{ marginRight: 8 }} onClick={() => onEdit(u)}>Edit</button>
+                  <button type="button" className="danger-btn" onClick={() => onDelete(u.id)}>Delete</button>
+                </td>
               </tr>
             ))}
           </tbody>

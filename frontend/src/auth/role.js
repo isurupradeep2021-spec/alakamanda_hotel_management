@@ -23,6 +23,28 @@ export const registrationRoles = [
 
 export const roleMenus = {
   [ROLES.ADMIN]: [
+    { path: '/dashboard', label: 'Dashboard', icon: 'bi-speedometer2' },
+    { path: '/users', label: 'Staff Management', icon: 'bi-people' },
+    { path: '/rooms', label: 'Room Management', icon: 'bi-building' },
+    { path: '/restaurant-buffet', label: 'Restaurant & Dining', icon: 'bi-cup-hot' },
+    { path: '/events', label: 'Event Management', icon: 'bi-calendar-event' },
+    { path: '/payroll-center', label: 'Payroll Center', icon: 'bi-cash-stack' },
+    { path: '/payroll', label: 'Payroll Records', icon: 'bi-receipt' },
+    { path: '/payslip', label: 'Payslips', icon: 'bi-file-earmark-pdf' },
+    { path: '/reports', label: 'Reports', icon: 'bi-bar-chart' }
+  ],
+  [ROLES.MANAGER]: [
+    { path: '/dashboard', label: 'Dashboard', icon: 'bi-speedometer2' },
+    { path: '/users', label: 'Staff Management', icon: 'bi-people' },
+    { path: '/payroll-center', label: 'Payroll Center', icon: 'bi-cash-stack' },
+    { path: '/payroll', label: 'Payroll Records', icon: 'bi-receipt' },
+    { path: '/payslip', label: 'Payslips', icon: 'bi-file-earmark-pdf' },
+    { path: '/reports', label: 'View Reports', icon: 'bi-bar-chart' }
+  ],
+  [ROLES.STAFF_MEMBER]: [
+    { path: '/dashboard', label: 'Dashboard', icon: 'bi-speedometer2' },
+    { path: '/payroll-center', label: 'Payroll Center', icon: 'bi-cash-stack' },
+    { path: '/payslip', label: 'My Payslips', icon: 'bi-file-earmark-pdf' }
     { path: "/dashboard", label: "Dashboard", icon: "bi-speedometer2" },
     { path: "/payroll-center", label: "Payroll Center", icon: "bi-cash-stack" },
     { path: "/users", label: "User Management", icon: "bi-people" },
@@ -120,6 +142,41 @@ export const roleMenus = {
     { path: "/guest-list", label: "Guest List", icon: "bi-list-check" },
   ],
   [ROLES.CUSTOMER]: [
+    { path: '/dashboard', label: 'Dashboard', icon: 'bi-speedometer2' },
+    { path: '/view-rooms', label: 'View Rooms', icon: 'bi-building' },
+    { path: '/book-room', label: 'Book Room', icon: 'bi-door-open' },
+    { path: '/view-menu', label: 'Restaurant & Dining', icon: 'bi-cup-hot' },
+    { path: '/book-event', label: 'Book Event', icon: 'bi-calendar-plus' },
+    { path: '/profile', label: 'My Profile', icon: 'bi-person-circle' }
+  ]
+};
+
+export const routeAccess = {
+  '/dashboard': Object.values(ROLES),
+  '/payroll-center': [ROLES.ADMIN, ROLES.MANAGER, ROLES.STAFF_MEMBER],
+  '/payroll-suite': [ROLES.ADMIN],
+  '/users': [ROLES.ADMIN, ROLES.MANAGER],
+  '/rooms': [ROLES.ADMIN, ROLES.MANAGER],
+  '/restaurant-buffet': [ROLES.ADMIN],
+  '/events': [ROLES.ADMIN, ROLES.MANAGER],
+  '/payroll': [ROLES.ADMIN, ROLES.MANAGER],
+  '/payslip': [ROLES.ADMIN, ROLES.MANAGER, ROLES.STAFF_MEMBER],
+  '/reports': [ROLES.ADMIN, ROLES.MANAGER],
+  '/restaurant': [ROLES.MANAGER],
+  '/room-booking': [ROLES.RECEPTIONIST],
+  '/customers': [ROLES.RECEPTIONIST],
+  '/booking-history': [ROLES.RECEPTIONIST],
+  '/menu-management': [ROLES.RESTAURANT_MANAGER],
+  '/buffet-management': [ROLES.RESTAURANT_MANAGER],
+  '/orders': [ROLES.RESTAURANT_MANAGER],
+  '/event-booking': [ROLES.EVENT_MANAGER],
+  '/event-management': [ROLES.EVENT_MANAGER],
+  '/guest-list': [ROLES.EVENT_MANAGER],
+  '/view-rooms': [ROLES.CUSTOMER],
+  '/book-room': [ROLES.CUSTOMER],
+  '/view-menu': [ROLES.CUSTOMER],
+  '/book-event': [ROLES.CUSTOMER],
+  '/profile': [ROLES.CUSTOMER]
     { path: "/dashboard", label: "Dashboard", icon: "bi-speedometer2" },
     { path: "/view-rooms", label: "View Rooms", icon: "bi-building" },
     { path: "/book-room", label: "Book Room", icon: "bi-door-open" },
