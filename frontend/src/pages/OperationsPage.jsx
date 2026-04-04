@@ -624,18 +624,18 @@ function OperationsPage({ type }) {
                                                 Stay Duration: <strong>{priceBreakdown.numberOfNights} nights</strong>
                                             </li>
                                             <li style={{ marginBottom: "6px" }}>
-                                                Weekdays ({priceBreakdown.weekdayNights}): ${priceBreakdown.weekdayCost?.toFixed(2)}
+                                                Weekdays ({priceBreakdown.weekdayNights}): LKR {priceBreakdown.weekdayCost?.toFixed(2)}
                                             </li>
                                             <li style={{ marginBottom: "6px" }}>
-                                                Weekends ({priceBreakdown.weekendNights}): ${priceBreakdown.weekendCost?.toFixed(2)}
+                                                Weekends ({priceBreakdown.weekendNights}): LKR {priceBreakdown.weekendCost?.toFixed(2)}
                                             </li>
                                             {priceBreakdown.seasonalMultiplier && (
                                                 <li style={{ marginBottom: "6px" }}>
-                                                    Seasonal ({(priceBreakdown.seasonalMultiplier - 1) * 100}%): +${priceBreakdown.seasonalAdjustment?.toFixed(2)}
+                                                    Seasonal ({(priceBreakdown.seasonalMultiplier - 1) * 100}%): +LKR {priceBreakdown.seasonalAdjustment?.toFixed(2)}
                                                 </li>
                                             )}
                                         </ul>
-                                        {roomPopularity?.isPopular && <div style={{ marginBottom: "8px" }}>Popular Room (+15%): +${priceBreakdown.popularityPremium?.toFixed(2)}</div>}
+                                        {roomPopularity?.isPopular && <div style={{ marginBottom: "8px" }}>Popular Room (+15%): +LKR {priceBreakdown.popularityPremium?.toFixed(2)}</div>}
                                         <div
                                             style={{
                                                 marginTop: "12px",
@@ -646,7 +646,7 @@ function OperationsPage({ type }) {
                                                 color: "var(--accent-gold)",
                                             }}
                                         >
-                                            Total: ${priceBreakdown.totalCost?.toFixed(2)}
+                                            Total: LKR {priceBreakdown.totalCost?.toFixed(2)}
                                         </div>
                                         {roomPopularity && (
                                             <div style={{ marginTop: "8px", fontSize: "0.8rem", color: "var(--charcoal-soft)" }}>Occupancy Rate: {roomPopularity.occupancyRate?.toFixed(0)}%</div>
