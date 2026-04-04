@@ -29,6 +29,7 @@ public class RoomController {
         if (room.getStatus() == null || room.getStatus().isBlank()) {
             room.setStatus(room.isAvailable() ? "AVAILABLE" : "OCCUPIED");
         }
+        syncAvailabilityWithStatus(room);
         return roomRepository.save(room);
     }
 
@@ -44,9 +45,24 @@ public class RoomController {
         existing.setPricePerNight(room.getPricePerNight());
         existing.setWeekendPricePerNight(room.getWeekendPricePerNight());
         existing.setSpecialRate(room.getSpecialRate());
-        existing.setAvailable(room.isAvailable());
         existing.setStatus(room.getStatus());
+        existing.setAvailable(room.isAvailable());
+        syncAvailabilityWithStatus(existing);
         return roomRepository.save(existing);
+    }
+
+    @PostMapping("/{id}/complete-cleaning")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST')")
+    public Room completeCleaning(@PathVariable Long id) {
+        Room room = roomRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Room not found"));
+
+        if ("MAINTENANCE".equalsIgnoreCase(room.getStatus())) {
+            throw new IllegalArgumentException("Room is under maintenance and cannot be marked available");
+        }
+
+        room.setStatus("AVAILABLE");
+        room.setAvailable(true);
+        return roomRepository.save(room);
     }
 
     @DeleteMapping("/{id}")
@@ -68,5 +84,18 @@ public class RoomController {
                 "totalRooms", total,
                 "availableRooms", available
         );
+    }
+
+    private void syncAvailabilityWithStatus(Room room) {
+        if (room.getStatus() == null || room.getStatus().isBlank()) {
+            return;
+        }
+
+        if ("AVAILABLE".equalsIgnoreCase(room.getStatus())) {
+            room.setAvailable(true);
+            return;
+        }
+
+        room.setAvailable(false);
     }
 }

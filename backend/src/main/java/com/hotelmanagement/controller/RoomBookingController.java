@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -45,8 +46,9 @@ public class RoomBookingController {
         booking.setCreatedAt(LocalDateTime.now());
         booking.setStatus(booking.getStatus() == null ? "CONFIRMED" : booking.getStatus());
         booking.setTotalCost(calculateCost(booking, room));
-
-        return repository.save(booking);
+        RoomBooking saved = repository.save(booking);
+        refreshRoomStatus(booking.getRoomNumber());
+        return saved;
     }
 
     @PutMapping("/{id}")
@@ -54,6 +56,8 @@ public class RoomBookingController {
     public RoomBooking update(@PathVariable Long id, @RequestBody RoomBooking booking) {
         RoomBooking existing = repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Room booking not found"));
+
+        String previousRoomNumber = existing.getRoomNumber();
 
         validateDates(booking.getCheckInDate(), booking.getCheckOutDate());
         ensureNoOverlap(booking.getRoomNumber(), booking.getCheckInDate(), booking.getCheckOutDate(), id);
@@ -73,14 +77,51 @@ public class RoomBookingController {
         existing.setGuestCount(booking.getGuestCount());
         existing.setStatus(booking.getStatus());
         existing.setTotalCost(calculateCost(existing, room));
+        RoomBooking saved = repository.save(existing);
 
-        return repository.save(existing);
+        if ("CHECKED_OUT".equalsIgnoreCase(saved.getStatus())) {
+            room.setStatus("CLEANING");
+            room.setAvailable(false);
+            roomRepository.save(room);
+            if (previousRoomNumber != null && !previousRoomNumber.equalsIgnoreCase(saved.getRoomNumber())) {
+                refreshRoomStatus(previousRoomNumber);
+            }
+            return saved;
+        }
+
+        refreshRoomStatus(saved.getRoomNumber());
+        if (previousRoomNumber != null && !previousRoomNumber.equalsIgnoreCase(saved.getRoomNumber())) {
+            refreshRoomStatus(previousRoomNumber);
+        }
+        return saved;
+    }
+
+    @PostMapping("/{id}/checkout")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST')")
+    public RoomBooking checkout(@PathVariable Long id) {
+        RoomBooking booking = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Room booking not found"));
+
+        booking.setStatus("CHECKED_OUT");
+        RoomBooking saved = repository.save(booking);
+
+        Room room = roomRepository.findByRoomNumber(booking.getRoomNumber())
+                .orElseThrow(() -> new IllegalArgumentException("Room not found"));
+        room.setStatus("CLEANING");
+        room.setAvailable(false);
+        roomRepository.save(room);
+
+        return saved;
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public void delete(@PathVariable Long id) {
+        RoomBooking booking = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Room booking not found"));
+        String roomNumber = booking.getRoomNumber();
         repository.deleteById(id);
+        refreshRoomStatus(roomNumber);
     }
 
     @GetMapping("/analytics")
@@ -124,5 +165,52 @@ public class RoomBookingController {
 
         BigDecimal nightly = room.getPricePerNight() == null ? BigDecimal.ZERO : room.getPricePerNight();
         return nightly.multiply(BigDecimal.valueOf(nights));
+    }
+
+    private void refreshRoomStatus(String roomNumber) {
+        if (roomNumber == null || roomNumber.isBlank()) {
+            return;
+        }
+
+        Room room = roomRepository.findByRoomNumber(roomNumber).orElse(null);
+        if (room == null) {
+            return;
+        }
+
+        if ("MAINTENANCE".equalsIgnoreCase(room.getStatus()) || "CLEANING".equalsIgnoreCase(room.getStatus())) {
+            room.setAvailable(false);
+            roomRepository.save(room);
+            return;
+        }
+
+        LocalDate today = LocalDate.now();
+        List<RoomBooking> bookings = repository.findByRoomNumber(roomNumber).stream()
+                .filter(b -> b.getStatus() == null
+                        || (!"CANCELLED".equalsIgnoreCase(b.getStatus())
+                        && !"CHECKED_OUT".equalsIgnoreCase(b.getStatus())))
+                .sorted(Comparator.comparing(RoomBooking::getCheckInDate))
+                .toList();
+
+        boolean occupied = bookings.stream().anyMatch(b ->
+                !today.isBefore(b.getCheckInDate()) && today.isBefore(b.getCheckOutDate()));
+
+        if (occupied) {
+            room.setStatus("OCCUPIED");
+            room.setAvailable(false);
+            roomRepository.save(room);
+            return;
+        }
+
+        boolean reserved = bookings.stream().anyMatch(b -> !b.getCheckInDate().isBefore(today));
+        if (reserved) {
+            room.setStatus("RESERVED");
+            room.setAvailable(false);
+            roomRepository.save(room);
+            return;
+        }
+
+        room.setStatus("AVAILABLE");
+        room.setAvailable(true);
+        roomRepository.save(room);
     }
 }
