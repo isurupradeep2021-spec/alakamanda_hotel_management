@@ -54,7 +54,19 @@ const empty = {
     },
     restaurant: { customerName: "", contact: "", guests: 2, bookingDateTime: "", category: "Dinner", menuItem: "", quantity: 1, unitPrice: 0, tableNumber: 1, specialRequest: "", status: "PENDING" },
     events: { customerName: "", eventType: "Wedding", hallName: "", packageName: "Standard", eventDateTime: "", attendees: 50, pricePerGuest: 0, notes: "", status: "INQUIRY" },
-    rooms: { roomNumber: "", roomType: "Deluxe", description: "", photoUrl: "", capacity: 2, pricePerNight: 0, weekendPricePerNight: 0, specialRate: 0, available: true, status: "AVAILABLE" },
+    rooms: {
+        roomNumber: "",
+        roomName: "Deluxe Room",
+        roomType: "Deluxe",
+        description: "",
+        photoUrl: "",
+        capacity: null,
+        pricePerNight: null,
+        weekendPricePerNight: null,
+        specialRate: null,
+        available: true,
+        status: "AVAILABLE",
+    },
     roomBooking: { customerName: "", customerEmail: "", roomNumber: "", checkInDate: "", checkOutDate: "", guestCount: 1, status: "CONFIRMED" },
 };
 
@@ -359,21 +371,47 @@ function OperationsPage({ type }) {
         }
         return (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", width: "100%" }}>
-                <input placeholder="Room Number" value={form.roomNumber} onChange={(e) => setForm({ ...form, roomNumber: e.target.value })} required />
-                <input placeholder="Room Type" value={form.roomType} onChange={(e) => setForm({ ...form, roomType: e.target.value })} required />
-                <input placeholder="Photo URL" value={form.photoUrl} onChange={(e) => setForm({ ...form, photoUrl: e.target.value })} />
-                <input placeholder="Room Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-                <input type="number" placeholder="Capacity" value={form.capacity} onChange={(e) => setForm({ ...form, capacity: Number(e.target.value) })} />
-                <input type="number" placeholder="Price Per Night" value={form.pricePerNight} onChange={(e) => setForm({ ...form, pricePerNight: Number(e.target.value) })} />
-                <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-                    <option>AVAILABLE</option>
-                    <option>OCCUPIED</option>
-                    <option>RESERVED</option>
-                    <option>CLEANING</option>
-                    <option>MAINTENANCE</option>
-                </select>
-                <label className="inline-check" style={{ alignSelf: "center" }}>
-                    <input type="checkbox" checked={form.available} onChange={(e) => setForm({ ...form, available: e.target.checked })} /> Available
+                <label>
+                    Room Number
+                    <input value={form.roomNumber} onChange={(e) => setForm({ ...form, roomNumber: e.target.value })} required />
+                </label>
+                <label>
+                    Room Type
+                    <select value={form.roomType} onChange={(e) => setForm({ ...form, roomType: e.target.value })} required>
+                        <option>Standard</option>
+                        <option>Deluxe</option>
+                        <option>Suite</option>
+                        <option>Family</option>
+                    </select>
+                </label>
+                <label>
+                    Photo URL
+                    <input value={form.photoUrl} onChange={(e) => setForm({ ...form, photoUrl: e.target.value })} />
+                </label>
+                <label>
+                    Room Description
+                    <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                </label>
+                <label>
+                    Capacity
+                    <input type="number" min="1" value={form.capacity ?? ""} onChange={(e) => setForm({ ...form, capacity: e.target.value === "" ? null : Number(e.target.value) })} />
+                </label>
+                <label>
+                    Normal Price
+                    <input type="number" min="0" value={form.pricePerNight ?? ""} onChange={(e) => setForm({ ...form, pricePerNight: e.target.value === "" ? null : Number(e.target.value) })} />
+                </label>
+                <label>
+                    Weekend Price
+                    <input
+                        type="number"
+                        min="0"
+                        value={form.weekendPricePerNight ?? ""}
+                        onChange={(e) => setForm({ ...form, weekendPricePerNight: e.target.value === "" ? null : Number(e.target.value) })}
+                    />
+                </label>
+                <label>
+                    Seasonal Price (Optional)
+                    <input type="number" min="0" value={form.specialRate ?? ""} onChange={(e) => setForm({ ...form, specialRate: e.target.value === "" ? null : Number(e.target.value) })} />
                 </label>
             </div>
         );
@@ -659,7 +697,7 @@ function OperationsPage({ type }) {
                                     {currentRows.map((row) => (
                                         <tr key={`${row._kind || type}-${row.id}`}>
                                             <td>{row.id}</td>
-                                            <td>{row.employeeName || row.customerName || row.roomNumber || row.eventType || row.menuItem}</td>
+                                            <td>{row.employeeName || row.customerName || row.roomName || row.roomNumber || row.eventType || row.menuItem}</td>
                                             <td>{row.status || row._kind || "-"}</td>
                                             <td>{row.netSalary || row.totalAmount || row.totalCost || row.pricePerNight || "-"}</td>
                                             <td>

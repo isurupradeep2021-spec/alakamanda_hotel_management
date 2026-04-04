@@ -15,7 +15,9 @@ import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -81,15 +83,12 @@ public class PricingService {
 
         BigDecimal subtotal = weekdayCost.add(weekendCostValue);
 
-        // Check for seasonal pricing
-        Optional<Season> season = findSeasonForRange(checkInDate, checkOutDate);
-        if (season.isPresent()) {
-            Season seasonObj = season.get();
-            BigDecimal multiplier = seasonObj.getPriceMultiplier();
-            BigDecimal seasonalAdjustment = subtotal.multiply(multiplier.subtract(BigDecimal.ONE));
-            breakdown.setSeasonalMultiplier(multiplier);
+        // Apply seasonal pricing per-night (only on overlapping season days).
+        BigDecimal seasonalAdjustment = calculateSeasonalAdjustmentByNight(room, checkInDate, checkOutDate);
+        if (seasonalAdjustment.compareTo(BigDecimal.ZERO) > 0) {
             breakdown.setSeasonalAdjustment(seasonalAdjustment);
-            subtotal = subtotal.multiply(multiplier);
+            breakdown.setSeasonalMultiplier(estimateSeasonalMultiplier(subtotal, seasonalAdjustment));
+            subtotal = subtotal.add(seasonalAdjustment);
         }
 
         // Check for popularity premium
@@ -111,6 +110,52 @@ public class PricingService {
         return breakdown;
     }
 
+    private BigDecimal calculateSeasonalAdjustmentByNight(Room room, LocalDate checkInDate, LocalDate checkOutDate) {
+        List<Season> activeSeasons = seasonRepository.findAllActive();
+        if (activeSeasons.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+
+        Map<LocalDate, Season> seasonByDate = new HashMap<>();
+        for (Season season : activeSeasons) {
+            LocalDate current = season.getStartDate();
+            while (!current.isAfter(season.getEndDate())) {
+                seasonByDate.putIfAbsent(current, season);
+                current = current.plusDays(1);
+            }
+        }
+
+        BigDecimal baseNightPrice = room.getPricePerNight() != null ? room.getPricePerNight() : BigDecimal.ZERO;
+        BigDecimal weekendNightPrice = room.getWeekendPricePerNight() != null
+                ? room.getWeekendPricePerNight()
+                : baseNightPrice.multiply(WEEKEND_MULTIPLIER);
+
+        BigDecimal adjustment = BigDecimal.ZERO;
+        LocalDate currentNight = checkInDate;
+        while (currentNight.isBefore(checkOutDate)) {
+            Season season = seasonByDate.get(currentNight);
+            if (season != null) {
+                DayOfWeek day = currentNight.getDayOfWeek();
+                BigDecimal nightBase = (day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY)
+                        ? weekendNightPrice
+                        : baseNightPrice;
+                BigDecimal nightAdjustment = nightBase.multiply(season.getPriceMultiplier().subtract(BigDecimal.ONE));
+                adjustment = adjustment.add(nightAdjustment);
+            }
+            currentNight = currentNight.plusDays(1);
+        }
+
+        return adjustment;
+    }
+
+    private BigDecimal estimateSeasonalMultiplier(BigDecimal subtotal, BigDecimal seasonalAdjustment) {
+        if (subtotal.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ONE;
+        }
+        return subtotal.add(seasonalAdjustment)
+                .divide(subtotal, 4, RoundingMode.HALF_UP);
+    }
+
     /**
      * Count weekend nights in a date range
      */
@@ -127,22 +172,6 @@ public class PricingService {
         }
         
         return weekendCount;
-    }
-
-    /**
-     * Check if a date range overlaps with any active season
-     */
-    private Optional<Season> findSeasonForRange(LocalDate start, LocalDate end) {
-        List<Season> activeSeason = seasonRepository.findAllActive();
-        
-        for (Season season : activeSeason) {
-            // Check if any part of the booking overlaps with season
-            if (start.isBefore(season.getEndDate()) && end.isAfter(season.getStartDate())) {
-                return Optional.of(season);
-            }
-        }
-        
-        return Optional.empty();
     }
 
     /**

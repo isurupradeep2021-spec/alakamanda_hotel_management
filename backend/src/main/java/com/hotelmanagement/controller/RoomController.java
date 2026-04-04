@@ -38,6 +38,7 @@ public class RoomController {
     public Room updateRoom(@PathVariable Long id, @RequestBody Room room) {
         Room existing = roomRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Room not found"));
         existing.setRoomNumber(room.getRoomNumber());
+        existing.setRoomName(room.getRoomName());
         existing.setRoomType(room.getRoomType());
         existing.setDescription(room.getDescription());
         existing.setPhotoUrl(room.getPhotoUrl());
