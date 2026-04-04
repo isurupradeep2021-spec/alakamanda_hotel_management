@@ -38,7 +38,17 @@ public class DataSeeder implements CommandLineRunner {
     }
 
     private void ensureSchemaCompatibility() {
-        jdbcTemplate.execute("ALTER TABLE users MODIFY COLUMN role VARCHAR(50) NOT NULL");
+        try {
+            // SQL Server syntax
+            jdbcTemplate.execute("ALTER TABLE users ALTER COLUMN role VARCHAR(50) NOT NULL");
+        } catch (Exception sqlServerEx) {
+            try {
+                // MySQL syntax
+                jdbcTemplate.execute("ALTER TABLE users MODIFY COLUMN role VARCHAR(50) NOT NULL");
+            } catch (Exception ignored) {
+                // Column is already compatible or database uses a different dialect.
+            }
+        }
     }
 
     private void seedUsers() {

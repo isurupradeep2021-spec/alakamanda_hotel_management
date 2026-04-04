@@ -21,6 +21,8 @@ public class Room {
     @Column(nullable = false, unique = true)
     private String roomNumber;
 
+    private String roomName;
+
     @Column(nullable = false)
     private String roomType;
 

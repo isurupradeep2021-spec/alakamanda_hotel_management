@@ -35,8 +35,10 @@ public class PayrollRecord {
 
     private String employeeCode;
 
+    @Column(name = "payroll_month_number")
     private Integer month;
 
+    @Column(name = "payroll_year")
     private Integer year;
 
     private Integer workingDays;
