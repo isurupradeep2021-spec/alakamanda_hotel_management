@@ -37,20 +37,21 @@ function LoginPage() {
 
   return (
     <div className="auth-layout">
+      {/* Full Page 3D Background */}
+      <StarsBackground />
+
       {/* Left Hero Section */}
       <div className="auth-hero">
-        <StarsBackground />
-        
         <div className="auth-brand">
-          <div className="brand-logo-mark"><span>H</span></div>
-          HOTELFLOW & RESORTS
+          <div className="brand-logo-mark"><span>A</span></div>
+          ALAKAMANDA HOTEL AND RESTURANT
         </div>
 
         <div className="auth-hero-content">
-          <div className="auth-hero-eyebrow">EST. 2024 • WORLDWIDE</div>
+          <div className="auth-hero-eyebrow">EST. 2015</div>
           <h1 className="auth-hero-title">Where Luxury Becomes <span>Legend</span></h1>
           <p className="auth-hero-desc">
-            Immerse yourself in the extraordinary. Each property is a sanctuary of refinement — where timeless elegance meets impeccable service, and every moment is curated to perfection.
+            Luxury Stays
           </p>
         </div>
 

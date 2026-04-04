@@ -10,6 +10,17 @@ export const ROLES = {
     STAFF: "Staff",
 };
 
+export const roomServiceRoles = [ROLES.HOUSEKEEPER, ROLES.MAINTENANCE_STAFF];
+
+export const registrationRoles = [
+  ROLES.CUSTOMER,
+  ROLES.MANAGER,
+  ROLES.STAFF_MEMBER,
+  ROLES.RECEPTIONIST,
+  ROLES.HOUSEKEEPER,
+  ROLES.MAINTENANCE_STAFF,
+];
+
 export const roleMenus = {
     [ROLES.ADMIN]: [
         { path: "/dashboard", label: "Dashboard", icon: "bi-speedometer2" },
@@ -93,6 +104,14 @@ const normalizedRoleMap = Object.values(ROLES).reduce((acc, role) => {
     return acc;
 }, {});
 
+const backendRoleMap = Object.entries(ROLES).reduce((acc, [key, label]) => {
+  acc[key] = key;
+  acc[key.toLowerCase()] = key;
+  acc[label] = key;
+  acc[label.toLowerCase()] = key;
+  return acc;
+}, {});
+
 Object.entries(ROLES).forEach(([key, label]) => {
     normalizedRoleMap[key.toLowerCase()] = label;
 });
@@ -100,14 +119,31 @@ Object.entries(ROLES).forEach(([key, label]) => {
 // Backend role aliases
 normalizedRoleMap.staff = ROLES.STAFF_MEMBER;
 normalizedRoleMap.staff_member = ROLES.STAFF_MEMBER;
+normalizedRoleMap.housekeeper = ROLES.HOUSEKEEPER;
+normalizedRoleMap.maintenance_staff = ROLES.MAINTENANCE_STAFF;
+normalizedRoleMap["maintenance staff"] = ROLES.MAINTENANCE_STAFF;
 
 export function normalizeRole(role) {
     if (!role || typeof role !== "string") return null;
     return normalizedRoleMap[role.trim().toLowerCase()] || null;
 }
 
+export function toBackendRole(role) {
+  if (!role || typeof role !== "string") return null;
+  return (
+    backendRoleMap[role.trim()] ||
+    backendRoleMap[role.trim().toLowerCase()] ||
+    null
+  );
+}
+
 export function isValidRole(role) {
     return Boolean(normalizeRole(role));
+}
+
+export function isRoomServiceRole(role) {
+  const normalized = normalizeRole(role);
+  return roomServiceRoles.includes(normalized);
 }
 
 export function getCurrentRole() {

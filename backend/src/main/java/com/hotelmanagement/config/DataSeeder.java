@@ -23,6 +23,7 @@ public class DataSeeder implements CommandLineRunner {
     private final EventBookingRepository eventBookingRepository;
     private final RoomBookingRepository roomBookingRepository;
     private final PayrollRecordRepository payrollRecordRepository;
+    private final PayrollProfileRepository payrollProfileRepository;
     private final PasswordEncoder passwordEncoder;
     private final JdbcTemplate jdbcTemplate;
 
@@ -32,6 +33,7 @@ public class DataSeeder implements CommandLineRunner {
         seedUsers();
         seedRooms();
         seedBookings();
+        seedPayrollProfiles();
         seedPayroll();
     }
 
@@ -53,6 +55,8 @@ public class DataSeeder implements CommandLineRunner {
         upsertUser("Admin User", "admin@hotel.com", Role.ADMIN, "ADM-001", "Administrator", new BigDecimal("6000.00"), "0770000001");
         upsertUser("Manager User", "manager@hotel.com", Role.MANAGER, "MNG-001", "Manager", new BigDecimal("4500.00"), "0770000002");
         upsertUser("Staff Member", "staff@hotel.com", Role.STAFF, "STF-001", "Receptionist", new BigDecimal("2200.00"), "0770000007");
+        upsertUser("Housekeeping Lead", "housekeeping@hotel.com", Role.HOUSEKEEPER, "HKS-001", "Housekeeping", new BigDecimal("2100.00"), "0770000008");
+        upsertUser("Maintenance Lead", "maintenance@hotel.com", Role.MAINTENANCE_STAFF, "MNT-001", "Maintenance", new BigDecimal("2300.00"), "0770000009");
 
         // Keep existing project roles for other modules.
         upsertUser("Reception User", "reception@hotel.com", Role.RECEPTIONIST, "REC-001", "Receptionist", new BigDecimal("2200.00"), "0770000003");
@@ -232,5 +236,40 @@ public class DataSeeder implements CommandLineRunner {
                 .payrollMonth(YearMonth.now().toString())
                 .notes("Seed payroll")
                 .build());
+    }
+
+    private void seedPayrollProfiles() {
+        upsertPayrollProfile("admin@hotel.com", ContractType.ADMIN, PayCycle.MONTHLY);
+        upsertPayrollProfile("manager@hotel.com", ContractType.MANAGER, PayCycle.MONTHLY);
+        upsertPayrollProfile("staff@hotel.com", ContractType.STAFF_MEMBER, PayCycle.MONTHLY);
+    }
+
+    private void upsertPayrollProfile(String email, ContractType contractType, PayCycle payCycle) {
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null) {
+            return;
+        }
+        PayrollProfile profile = payrollProfileRepository.findByUser(user).orElseGet(PayrollProfile::new);
+        profile.setUser(user);
+        profile.setEmployeeCode(user.getEmployeeId());
+        profile.setEmployeeName(user.getFullName());
+        profile.setContractType(contractType);
+        profile.setDepartment(user.getEmploymentRole() == null ? "General" : user.getEmploymentRole());
+        profile.setPayCycle(payCycle);
+        profile.setBaseSalary(user.getBasicSalary() == null ? BigDecimal.ZERO : user.getBasicSalary());
+        if (profile.getTaxRate() == null) {
+            profile.setTaxRate(contractType == ContractType.MANAGER ? new BigDecimal("0.18")
+                    : contractType == ContractType.ADMIN ? new BigDecimal("0.12")
+                    : new BigDecimal("0.08"));
+        }
+        if (profile.getInsuranceRate() == null) {
+            profile.setInsuranceRate(new BigDecimal("0.03"));
+        }
+        if (profile.getOvertimeMultiplier() == null) {
+            profile.setOvertimeMultiplier(new BigDecimal("1.5"));
+        }
+        profile.setActive(true);
+        profile.setArchived(false);
+        payrollProfileRepository.save(profile);
     }
 }

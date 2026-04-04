@@ -39,6 +39,12 @@ function formatDate(value) {
     return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
+function formatMoney(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '-';
+  return n.toFixed(2);
+}
+
 const empty = {
     payroll: {
         employeeName: "",

@@ -29,8 +29,8 @@ public class RoomBookingController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'CUSTOMER')")
-    public List<RoomBooking> getAll() {
-        return repository.findAll();
+    public List<RoomBookingResponse> getAll() {
+        return roomBookingService.getAllBookings();
     }
 
     @PostMapping

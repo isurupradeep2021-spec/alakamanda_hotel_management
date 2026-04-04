@@ -1,5 +1,10 @@
 package com.hotelmanagement.config;
 
+import com.hotelmanagement.exception.BookingConflictException;
+import com.hotelmanagement.exception.BookingNotFoundException;
+import com.hotelmanagement.exception.InvalidBookingException;
+import com.hotelmanagement.exception.RoomNotFoundException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -13,9 +18,34 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(RoomNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleRoomNotFound(RoomNotFoundException ex) {
+        return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(BookingNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleBookingNotFound(BookingNotFoundException ex) {
+        return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(BookingConflictException.class)
+    public ResponseEntity<Map<String, Object>> handleBookingConflict(BookingConflictException ex) {
+        return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidBookingException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidBooking(InvalidBookingException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
         return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Map<String, Object>> handleAccessDenied(AccessDeniedException ex) {
+        return buildResponse(HttpStatus.FORBIDDEN, ex.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

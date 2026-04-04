@@ -200,4 +200,23 @@ function CustomerDashboardPage() {
     );
 }
 
+function statusTone(status) {
+  const value = (status || '').toUpperCase();
+  if (['CONFIRMED', 'COMPLETED', 'APPROVED', 'SERVED'].includes(value)) return 'ok';
+  if (['CANCELLED', 'CLOSED', 'REJECTED'].includes(value)) return 'danger';
+  return 'pending';
+}
+
+function toTimestamp(value) {
+  const date = value ? new Date(value) : null;
+  const time = date && !Number.isNaN(date.getTime()) ? date.getTime() : 0;
+  return time;
+}
+
+function toDateTime(value, withTime = true) {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return '-';
+  return withTime ? date.toLocaleString() : date.toLocaleDateString();
+}
+
 export default CustomerDashboardPage;

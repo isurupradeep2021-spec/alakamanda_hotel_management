@@ -58,9 +58,29 @@ function ViewMenuPage() {
                  <span><i className="bi bi-star-fill" style={{color: '#d4af37'}} /> Signature Venue</span>
               </div>
 
-              <Link to={`/restaurant/${venue.id}`} className="room-cta" style={{ marginTop: 'auto' }}>
-                Reserve Table / View Menu
-              </Link>
+              <div className="menu-card-actions">
+                <a
+                  href={venue.menuPdf}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="room-cta"
+                  style={{ marginTop: 'auto' }}
+                >
+                  <i className="bi bi-file-earmark-richtext" /> View Full Menu
+                </a>
+
+                <a
+                  href={venue.menuPdf}
+                  download={`${venue.name.toLowerCase().replace(/\s+/g, '-')}-menu.pdf`}
+                  className="room-cta secondary"
+                >
+                  <i className="bi bi-download" /> Download Menu
+                </a>
+
+                <Link to={`/restaurant/${venue.id}`} className="room-cta secondary">
+                  <i className="bi bi-calendar2-check" /> Reserve Table
+                </Link>
+              </div>
             </div>
           </article>
         ))}
