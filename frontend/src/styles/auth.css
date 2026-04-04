@@ -5,29 +5,21 @@
   background-color: #0c0c0c;
   color: #fff;
   font-family: 'Inter', sans-serif;
+  position: relative;
+  z-index: 1;
 }
 
 /* Left Hero Section */
 .auth-hero {
   flex: 1.2;
   position: relative;
-  background-image: radial-gradient(circle at 50% 50%, #1a1510 0%, #0c0a08 100%);
+  background: transparent;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   padding: 60px 80px;
   overflow: hidden;
-}
-
-/* Star particles background effect */
-.auth-hero::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(#d4af37 1px, transparent 1px);
-  background-size: 50px 50px;
-  opacity: 0.1;
-  pointer-events: none;
+  z-index: 10;
 }
 
 .auth-brand {
@@ -137,12 +129,15 @@
 /* Right Form Section */
 .auth-form-side {
   flex: 1;
-  background-color: #0f0f0f;
+  background-color: rgba(15, 15, 15, 0.45);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   display: flex;
   flex-direction: column;
   justify-content: center;
   padding: 40px 8% 40px 10%;
-  border-left: 1px solid rgba(212, 175, 55, 0.1);
+  border-left: 1px solid rgba(212, 175, 55, 0.2);
+  z-index: 10;
 }
 
 .auth-form-wrapper {
@@ -210,8 +205,8 @@
 
 .dark-input {
   width: 100%;
-  background-color: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   color: #fff;
   padding: 14px 16px 14px 44px;
   font-family: 'Inter', sans-serif;

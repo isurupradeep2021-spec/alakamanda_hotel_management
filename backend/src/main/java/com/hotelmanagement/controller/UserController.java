@@ -1,6 +1,8 @@
 package com.hotelmanagement.controller;
 
+import com.hotelmanagement.dto.CreateStaffRequest;
 import com.hotelmanagement.dto.UserDto;
+import jakarta.validation.Valid;
 import com.hotelmanagement.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,5 +27,11 @@ public class UserController {
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'CUSTOMER')")
     public UserDto getUserById(@PathVariable Long id) {
         return userService.getUserById(id);
+    }
+
+    @PostMapping("/staff")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public UserDto createStaff(@Valid @RequestBody CreateStaffRequest request) {
+        return userService.createStaff(request);
     }
 }

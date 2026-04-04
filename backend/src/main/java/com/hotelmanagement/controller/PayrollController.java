@@ -1,9 +1,11 @@
 package com.hotelmanagement.controller;
 
 import com.hotelmanagement.entity.PayrollRecord;
+import com.hotelmanagement.entity.PayrollPaymentStatus;
 import com.hotelmanagement.entity.Role;
 import com.hotelmanagement.entity.User;
 import com.hotelmanagement.repository.PayrollRecordRepository;
+import com.hotelmanagement.service.PayrollAuditService;
 import com.hotelmanagement.service.PayrollAutomationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,6 +25,7 @@ public class PayrollController {
 
     private final PayrollRecordRepository repository;
     private final PayrollAutomationService payrollAutomationService;
+    private final PayrollAuditService payrollAuditService;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
@@ -41,7 +44,7 @@ public class PayrollController {
 
         if (currentUser.getRole() == Role.STAFF) {
             return rows.stream()
-                    .filter(r -> r.getUser() != null && r.getUser().getId().equals(currentUser.getId()))
+                    .filter(r -> belongsToCurrentStaff(currentUser, r))
                     .toList();
         }
 
@@ -49,7 +52,7 @@ public class PayrollController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public PayrollRecord create(@RequestBody PayrollRecord record) {
         if (record.getPayDate() == null) {
             record.setPayDate(LocalDate.now());
@@ -80,14 +83,49 @@ public class PayrollController {
             BigDecimal tax = record.getTax() == null ? BigDecimal.ZERO : record.getTax();
             record.setNetSalary(base.add(overtime).subtract(leaveDeduction).subtract(deductions).subtract(epf).subtract(tax).setScale(2, RoundingMode.HALF_UP));
         }
-        return repository.save(record);
+        PayrollRecord saved = repository.save(record);
+        payrollAuditService.log("PayrollRecord", saved.getId(), "CREATE", null, saved);
+        return saved;
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public PayrollRecord update(@PathVariable Long id, @RequestBody PayrollRecord payload) {
         PayrollRecord existing = repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Payroll record not found"));
+        if (existing.isLocked()) {
+            throw new IllegalArgumentException("Payroll record is locked after approval and cannot be edited");
+        }
+        PayrollRecord before = PayrollRecord.builder()
+                .id(existing.getId())
+                .employeeName(existing.getEmployeeName())
+                .employeeId(existing.getEmployeeId())
+                .department(existing.getDepartment())
+                .employeeCode(existing.getEmployeeCode())
+                .month(existing.getMonth())
+                .year(existing.getYear())
+                .payrollMonth(existing.getPayrollMonth())
+                .workingDays(existing.getWorkingDays())
+                .leaveDays(existing.getLeaveDays())
+                .absentDays(existing.getAbsentDays())
+                .lateDays(existing.getLateDays())
+                .totalOvertimeHours(existing.getTotalOvertimeHours())
+                .baseSalary(existing.getBaseSalary())
+                .overtimeRate(existing.getOvertimeRate())
+                .overtimePay(existing.getOvertimePay())
+                .grossSalary(existing.getGrossSalary())
+                .shiftAllowance(existing.getShiftAllowance())
+                .leaveDeduction(existing.getLeaveDeduction())
+                .deductions(existing.getDeductions())
+                .insuranceDeduction(existing.getInsuranceDeduction())
+                .loanRepayment(existing.getLoanRepayment())
+                .carryForwardAmount(existing.getCarryForwardAmount())
+                .epf(existing.getEpf())
+                .tax(existing.getTax())
+                .netSalary(existing.getNetSalary())
+                .paymentStatus(existing.getPaymentStatus())
+                .locked(existing.isLocked())
+                .build();
 
         if (payload.getEmployeeName() != null) existing.setEmployeeName(payload.getEmployeeName());
         if (payload.getDepartment() != null) existing.setDepartment(payload.getDepartment());
@@ -108,12 +146,20 @@ public class PayrollController {
 
         existing.setPaymentStatus(payload.getPaymentStatus() == null ? existing.getPaymentStatus() : payload.getPaymentStatus());
         existing.setNotes(payload.getNotes() == null ? existing.getNotes() : payload.getNotes());
-        return repository.save(existing);
+        PayrollRecord saved = repository.save(existing);
+        payrollAuditService.log("PayrollRecord", saved.getId(), "UPDATE", before, saved);
+        return saved;
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public void delete(@PathVariable Long id) {
+        PayrollRecord existing = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Payroll record not found"));
+        if (existing.isLocked()) {
+            throw new IllegalArgumentException("Payroll record is locked and cannot be deleted");
+        }
+        payrollAuditService.log("PayrollRecord", existing.getId(), "DELETE", existing, null);
         repository.deleteById(id);
     }
 
@@ -127,7 +173,7 @@ public class PayrollController {
                 : repository.findAll();
 
         if (currentUser.getRole() == Role.STAFF) {
-            rows = rows.stream().filter(r -> r.getUser() != null && r.getUser().getId().equals(currentUser.getId())).toList();
+            rows = rows.stream().filter(r -> belongsToCurrentStaff(currentUser, r)).toList();
         }
 
         BigDecimal net = rows.stream()
@@ -138,5 +184,45 @@ public class PayrollController {
                 "records", rows.size(),
                 "netTotal", net.setScale(2, RoundingMode.HALF_UP)
         );
+    }
+
+    @GetMapping("/history")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    public List<PayrollRecord> history(@RequestParam(required = false) LocalDate from,
+                                       @RequestParam(required = false) LocalDate to,
+                                       @RequestParam(required = false) Role role,
+                                       @RequestParam(required = false) PayrollPaymentStatus status) {
+        User currentUser = payrollAutomationService.getCurrentUser();
+        List<PayrollRecord> rows = repository.findAll();
+
+        if (from != null && to != null) {
+            rows = rows.stream()
+                    .filter(r -> r.getGeneratedDate() != null
+                            && !r.getGeneratedDate().isBefore(from)
+                            && !r.getGeneratedDate().isAfter(to))
+                    .toList();
+        }
+        if (role != null) {
+            rows = rows.stream()
+                    .filter(r -> r.getUser() != null && r.getUser().getRole() == role)
+                    .toList();
+        }
+        if (status != null) {
+            rows = rows.stream().filter(r -> r.getPaymentStatus() == status).toList();
+        }
+
+        if (currentUser.getRole() == Role.STAFF) {
+            rows = rows.stream().filter(r -> belongsToCurrentStaff(currentUser, r)).toList();
+        }
+        return rows;
+    }
+
+    private boolean belongsToCurrentStaff(User currentUser, PayrollRecord row) {
+        if (row.getUser() != null && row.getUser().getId() != null) {
+            return row.getUser().getId().equals(currentUser.getId());
+        }
+        return row.getEmployeeId() != null
+                && currentUser.getEmployeeId() != null
+                && row.getEmployeeId().equalsIgnoreCase(currentUser.getEmployeeId());
     }
 }

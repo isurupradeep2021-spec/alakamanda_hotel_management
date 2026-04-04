@@ -8,5 +8,7 @@ public enum Role {
     CUSTOMER,
     MANAGER,
     FINANCIAL_MANAGER,
-    STAFF
+    STAFF,
+    HOUSEKEEPER,
+    MAINTENANCE_STAFF
 }

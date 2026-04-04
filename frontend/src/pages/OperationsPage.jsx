@@ -31,9 +31,15 @@ import { ROLES } from '../auth/role';
 import { eventHalls } from '../data/eventHalls';
 
 function formatDate(value) {
-  if (!value) return '-';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+    if (!value) return "-";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+}
+
+function formatMoney(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '-';
+  return n.toFixed(2);
 }
 
 function formatCurrency(value) {
