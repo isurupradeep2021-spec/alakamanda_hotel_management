@@ -21,19 +21,20 @@ function DashboardPage() {
             .then((summaryRes) => setSummary(summaryRes.data))
             .catch(() => setSummary(null));
 
-        getRoomBookingInsights()
-            .then((insightsRes) => setRoomInsights(insightsRes.data || { topBookedRooms: [], leastBookedRooms: [] }))
-            .catch(() => setRoomInsights({ topBookedRooms: [], leastBookedRooms: [] }));
-    }, []);
+  const stats = [
+    { key: 'rooms', label: 'Total Rooms', icon: 'bi-building', value: summary?.rooms ?? '-', trend: '+6% this week' },
+    { key: 'roomBookings', label: 'Room Bookings', icon: 'bi-door-open', value: summary?.roomBookings ?? '-', trend: '+12% this week' },
+    { key: 'eventBookings', label: 'Active Events', icon: 'bi-calendar-event', value: summary?.eventBookings ?? '-', trend: '+4 this month' },
+    { key: 'restaurantOrders', label: 'Restaurant Orders', icon: 'bi-cup-hot', value: summary?.restaurantOrders ?? '-', trend: '+9% today' },
+    { key: 'payrollRecords', label: 'Payroll Records', icon: 'bi-cash-stack', value: summary?.payrollRecords ?? '-', trend: 'Updated monthly' }
+  ];
 
-    const stats = [
-        { key: "rooms", label: "Total Rooms", icon: "bi-building", value: summary?.rooms ?? "-", trend: "+6% this week" },
-        { key: "roomBookings", label: "Room Bookings", icon: "bi-door-open", value: summary?.roomBookings ?? "-", trend: "+12% this week" },
-        { key: "eventBookings", label: "Active Events", icon: "bi-calendar-event", value: summary?.eventBookings ?? "-", trend: "+4 this month" },
-        { key: "restaurantOrders", label: "Restaurant Orders", icon: "bi-cup-hot", value: summary?.restaurantOrders ?? "-", trend: "+9% today" },
-        { key: "payrollRecords", label: "Payroll Records", icon: "bi-cash-stack", value: summary?.payrollRecords ?? "-", trend: "Updated monthly" },
-        { key: "modules", label: "Modules Available", icon: "bi-grid-1x2", value: menu.length, trend: user?.role || "" },
-    ];
+  const activityFeed = [
+    `Rooms currently listed: ${summary?.rooms ?? '-'}`,
+    `New room bookings recorded: ${summary?.roomBookings ?? '-'}`,
+    `Active event count: ${summary?.eventBookings ?? '-'}`,
+    `Restaurant order volume: ${summary?.restaurantOrders ?? '-'}`
+  ];
 
     const activityFeed = [
         `Rooms currently listed: ${summary?.rooms ?? "-"}`,

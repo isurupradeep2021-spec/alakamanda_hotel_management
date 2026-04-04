@@ -419,11 +419,11 @@ export function CustomersPage() {
       });
 
       events.forEach((e) => {
-        const key = (e.customerName || '').toLowerCase();
+        const key = (e.customerEmail || e.customerName || '').toLowerCase();
         if (!key) return;
         map.set(key, {
           name: e.customerName,
-          contact: map.get(key)?.contact || '-',
+          contact: e.customerEmail || map.get(key)?.contact || '-',
           roomBookings: map.get(key)?.roomBookings || 0,
           diningOrders: map.get(key)?.diningOrders || 0,
           eventBookings: (map.get(key)?.eventBookings || 0) + 1
@@ -472,7 +472,7 @@ export function BookingHistoryPage() {
     Promise.all([
       getRoomBookings().then((r) => (r.data || []).map((x) => ({ type: 'Room', name: x.customerName, date: x.createdAt || x.checkInDate, status: x.status, detail: `${x.roomNumber} | ${x.checkInDate} - ${x.checkOutDate}` }))).catch(() => []),
       getDiningBookings().then((r) => (r.data || []).map((x) => ({ type: 'Dining', name: x.customerName, date: x.bookingDateTime, status: x.status, detail: `${x.menuItem || '-'} | Table ${x.tableNumber || '-'}` }))).catch(() => []),
-      getEventBookings().then((r) => (r.data || []).map((x) => ({ type: 'Event', name: x.customerName, date: x.eventDateTime, status: x.status, detail: `${x.eventType || '-'} | ${x.hallName || '-'}` }))).catch(() => [])
+      getEventBookings().then((r) => (r.data || []).map((x) => ({ type: 'Event', name: x.customerName, date: x.eventDateTime, status: x.status, detail: `${x.eventType || '-'} | ${x.hallName || '-'} | ${x.durationHours || 0} hrs` }))).catch(() => [])
     ]).then(([a, b, c]) => {
       const rows = [...a, ...b, ...c].sort((x, y) => new Date(y.date || 0) - new Date(x.date || 0));
       setHistory(rows);
@@ -531,14 +531,15 @@ export function GuestListPage() {
       <div className="table-wrap ops-table-wrap">
         <h3 className="ops-table-title">Event Guest Register</h3>
         <table className="data-table">
-          <thead><tr><th>Customer</th><th>Event</th><th>Hall</th><th>Attendees</th><th>Status</th><th>Date</th></tr></thead>
+          <thead><tr><th>Customer</th><th>Contact</th><th>Event</th><th>Hall</th><th>Duration</th><th>Status</th><th>Start</th></tr></thead>
           <tbody>
             {events.map((e) => (
               <tr key={e.id}>
                 <td>{e.customerName}</td>
+                <td>{e.customerEmail || e.customerMobile || '-'}</td>
                 <td>{e.eventType}</td>
                 <td>{e.hallName || '-'}</td>
-                <td>{e.attendees || '-'}</td>
+                <td>{e.durationHours ? `${e.durationHours} hrs` : '-'}</td>
                 <td>{e.status}</td>
                 <td>{formatDate(e.eventDateTime)}</td>
               </tr>
@@ -563,7 +564,15 @@ export function ProfilePage() {
   }, []);
 
   const myRooms = useMemo(() => roomBookings.filter((b) => (b.customerEmail || '').toLowerCase() === (user?.email || '').toLowerCase()), [roomBookings, user?.email]);
-  const myEvents = useMemo(() => eventBookings.filter((b) => (b.customerName || '').toLowerCase().includes((user?.fullName || '').toLowerCase())), [eventBookings, user?.fullName]);
+  const myEvents = useMemo(() => {
+    const email = (user?.email || '').toLowerCase();
+    const fullName = (user?.fullName || '').toLowerCase();
+    return eventBookings.filter((b) => {
+      const bookingEmail = (b.customerEmail || '').toLowerCase();
+      const bookingName = (b.customerName || '').toLowerCase();
+      return bookingEmail === email || bookingName.includes(fullName);
+    });
+  }, [eventBookings, user?.email, user?.fullName]);
   const myDining = useMemo(() => {
     const email = (user?.email || '').toLowerCase();
     const fullName = (user?.fullName || '').toLowerCase();
