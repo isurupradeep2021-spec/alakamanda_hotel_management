@@ -94,6 +94,7 @@ function OperationsPage({ type }) {
 
     const keyMetric = analytics.totalRevenue || analytics.revenue || analytics.netTotal || analytics.eventRevenue || analytics.activeBookings || analytics.records || "-";
     const lockCustomerReservationIdentity = type === "restaurant" && user?.role === ROLES.CUSTOMER;
+    const isCustomerRoomView = type === "rooms" && user?.role === ROLES.CUSTOMER;
 
     const load = async () => {
         setLoading(true);
@@ -112,9 +113,15 @@ function OperationsPage({ type }) {
                 setRows(list.data || []);
                 setAnalytics(summary.data || {});
             } else {
-                const [list, bookings, summary] = await Promise.all([getRooms(), getRoomBookings(), roomBookingAnalytics()]);
-                setRows((list.data || []).map((x) => ({ ...x, _kind: "room" })).concat((bookings.data || []).map((x) => ({ ...x, _kind: "booking" }))));
-                setAnalytics(summary.data || {});
+                if (isCustomerRoomView) {
+                    const [list, bookings] = await Promise.all([getRooms(), getRoomBookings()]);
+                    setRows((list.data || []).map((x) => ({ ...x, _kind: "room" })).concat((bookings.data || []).map((x) => ({ ...x, _kind: "booking" }))));
+                    setAnalytics({});
+                } else {
+                    const [list, bookings, summary] = await Promise.all([getRooms(), getRoomBookings(), roomBookingAnalytics()]);
+                    setRows((list.data || []).map((x) => ({ ...x, _kind: "room" })).concat((bookings.data || []).map((x) => ({ ...x, _kind: "booking" }))));
+                    setAnalytics(summary.data || {});
+                }
             }
         } catch (e) {
             setError(e.response?.data?.message || e.message || "Failed to load data");
@@ -131,15 +138,6 @@ function OperationsPage({ type }) {
             nextForm.contact = user.email || "";
         }
         setForm(nextForm);
-
-        // Auto-fill room booking form for customers
-        if (type === "rooms" && user?.role === ROLES.CUSTOMER) {
-            setBookingForm({
-                ...empty.roomBooking,
-                customerName: user.fullName || "",
-                customerEmail: user.email || "",
-            });
-        }
 
         load();
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -218,7 +216,17 @@ function OperationsPage({ type }) {
         e.preventDefault();
         setError("");
         try {
-            await createRoomBooking(bookingForm);
+            const payload = {
+                ...bookingForm,
+                ...(isCustomerRoomView
+                    ? {
+                          customerName: user?.fullName || bookingForm.customerName,
+                          customerEmail: user?.email || bookingForm.customerEmail,
+                      }
+                    : {}),
+            };
+
+            await createRoomBooking(payload);
             setBookingForm(empty.roomBooking);
             setPriceBreakdown(null);
             setRoomPopularity(null);
@@ -430,6 +438,28 @@ function OperationsPage({ type }) {
         return res;
     }, [rows, type, searchQuery, filterMonth]);
 
+    const customerBookedRooms = useMemo(() => {
+        if (!isCustomerRoomView) {
+            return [];
+        }
+
+        const roomByNumber = new Map(rows.filter((r) => r._kind === "room").map((r) => [r.roomNumber, r]));
+
+        return rows
+            .filter((r) => r._kind === "booking")
+            .filter((b) => {
+                const bookingEmail = (b.customerEmail || "").toLowerCase();
+                const bookingName = (b.customerName || "").toLowerCase();
+                const userEmail = (user?.email || "").toLowerCase();
+                const userName = (user?.fullName || "").toLowerCase();
+                return bookingEmail === userEmail || (bookingEmail === "" && bookingName === userName);
+            })
+            .map((b) => ({
+                ...b,
+                roomDetails: roomByNumber.get(b.roomNumber),
+            }));
+    }, [rows, isCustomerRoomView, user?.email]);
+
     return (
         <div className="module-page dashboard-luxe operations-luxe">
             <div className="dash-hero luxe-hero">
@@ -480,29 +510,31 @@ function OperationsPage({ type }) {
             </div>
 
             <div className="ops-grid">
-                <section className="ops-panel">
-                    <h3>{editId ? "Edit Record" : "Create Record"}</h3>
-                    <form className="crud-form premium-form" onSubmit={handleCreateOrUpdate}>
-                        {renderFields()}
-                        <div style={{ display: "flex", gap: "12px" }}>
-                            <button type="submit" className="primary-action">
-                                {editId ? "Update" : "Create"}
-                            </button>
-                            {editId && (
-                                <button
-                                    type="button"
-                                    className="secondary-btn"
-                                    onClick={() => {
-                                        setEditId(null);
-                                        setForm(empty[type] || {});
-                                    }}
-                                >
-                                    Cancel
+                {!isCustomerRoomView && (
+                    <section className="ops-panel">
+                        <h3>{editId ? "Edit Record" : "Create Record"}</h3>
+                        <form className="crud-form premium-form" onSubmit={handleCreateOrUpdate}>
+                            {renderFields()}
+                            <div style={{ display: "flex", gap: "12px" }}>
+                                <button type="submit" className="primary-action">
+                                    {editId ? "Update" : "Create"}
                                 </button>
-                            )}
-                        </div>
-                    </form>
-                </section>
+                                {editId && (
+                                    <button
+                                        type="button"
+                                        className="secondary-btn"
+                                        onClick={() => {
+                                            setEditId(null);
+                                            setForm(empty[type] || {});
+                                        }}
+                                    >
+                                        Cancel
+                                    </button>
+                                )}
+                            </div>
+                        </form>
+                    </section>
+                )}
 
                 {type === "rooms" && (
                     <section className="ops-panel">
@@ -575,6 +607,50 @@ function OperationsPage({ type }) {
 
             {loading ? (
                 <p className="loading-line">Loading module data...</p>
+            ) : isCustomerRoomView ? (
+                <div className="table-wrap ops-table-wrap">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "16px" }}>
+                        <h3 className="ops-table-title" style={{ margin: 0 }}>
+                            My Booked Rooms
+                        </h3>
+                    </div>
+                    <table className="data-table">
+                        <thead>
+                            <tr>
+                                <th>Room Number</th>
+                                <th>Room Type</th>
+                                <th>Description</th>
+                                <th>Check In</th>
+                                <th>Check Out</th>
+                                <th>Guests</th>
+                                <th>Status</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {customerBookedRooms.length === 0 ? (
+                                <tr>
+                                    <td colSpan={8} style={{ textAlign: "center", padding: "20px" }}>
+                                        No room bookings yet.
+                                    </td>
+                                </tr>
+                            ) : (
+                                customerBookedRooms.map((row) => (
+                                    <tr key={`customer-booking-${row.id}`}>
+                                        <td>{row.roomNumber || "-"}</td>
+                                        <td>{row.roomDetails?.roomType || "-"}</td>
+                                        <td>{row.roomDetails?.description || "-"}</td>
+                                        <td>{row.checkInDate || "-"}</td>
+                                        <td>{row.checkOutDate || "-"}</td>
+                                        <td>{row.guestCount || "-"}</td>
+                                        <td>{row.status || "-"}</td>
+                                        <td>{row.totalCost || "-"}</td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             ) : (
                 <div className="table-wrap ops-table-wrap">
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "16px" }}>
