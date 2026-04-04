@@ -34,6 +34,12 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
+function formatMoney(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '-';
+  return n.toFixed(2);
+}
+
 const empty = {
   payroll: { employeeName: '', department: '', employeeCode: '', workingDays: 26, absentDays: 0, overtimeHours: 0, baseSalary: 0, overtimeRate: 0, bonus: 0, deductions: 0, epf: 0, tax: 0, payrollMonth: new Date().toISOString().slice(0, 7) },
   restaurant: { customerName: '', contact: '', guests: 2, bookingDateTime: '', category: 'Dinner', menuItem: '', quantity: 1, unitPrice: 0, tableNumber: 1, specialRequest: '', status: 'PENDING' },
@@ -235,27 +241,119 @@ function OperationsPage({ type }) {
     }
     if (type === 'restaurant') {
       return (
-        <>
-          <input
-            placeholder="Customer Name"
-            value={form.customerName}
-            onChange={(e) => setForm({ ...form, customerName: e.target.value })}
-            readOnly={lockCustomerReservationIdentity}
-            required
-          />
-          <input
-            placeholder="Contact"
-            value={form.contact}
-            onChange={(e) => setForm({ ...form, contact: e.target.value })}
-            readOnly={lockCustomerReservationIdentity}
-          />
-          <input placeholder="Menu Item" value={form.menuItem} onChange={(e) => setForm({ ...form, menuItem: e.target.value })} required />
-          <input type="number" placeholder="Quantity" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} />
-          <input type="number" placeholder="Unit Price" value={form.unitPrice} onChange={(e) => setForm({ ...form, unitPrice: Number(e.target.value) })} />
-          <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-            <option>PENDING</option><option>PREPARING</option><option>READY</option><option>SERVED</option><option>CANCELLED</option>
-          </select>
-        </>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', width: '100%' }}>
+          <label>
+            Customer Name
+            <input
+              placeholder="Ex: John Doe"
+              value={form.customerName}
+              onChange={(e) => setForm({ ...form, customerName: e.target.value })}
+              readOnly={lockCustomerReservationIdentity}
+              required
+            />
+          </label>
+          <label>
+            Contact (Email/Phone)
+            <input
+              placeholder="Ex: john@email.com"
+              value={form.contact}
+              onChange={(e) => setForm({ ...form, contact: e.target.value })}
+              readOnly={lockCustomerReservationIdentity}
+              required
+            />
+          </label>
+          <label>
+            Date & Time
+            <input
+              type="datetime-local"
+              value={form.bookingDateTime || ''}
+              onChange={(e) => setForm({ ...form, bookingDateTime: e.target.value })}
+              required
+            />
+          </label>
+          <label>
+            Meal Period
+            <select value={form.category || 'Dinner'} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+              <option>Breakfast</option>
+              <option>Lunch</option>
+              <option>Dinner</option>
+              <option>Desserts</option>
+              <option>Beverages</option>
+            </select>
+          </label>
+          <label>
+            Menu Item / Reservation Note
+            <input
+              placeholder="Ex: Seafood Platter or Table Reservation"
+              value={form.menuItem || ''}
+              onChange={(e) => setForm({ ...form, menuItem: e.target.value })}
+              required
+            />
+          </label>
+          <label>
+            Guests
+            <input
+              type="number"
+              min="1"
+              value={form.guests || 1}
+              onChange={(e) => setForm({ ...form, guests: Number(e.target.value) })}
+              required
+            />
+          </label>
+          <label>
+            Quantity
+            <input
+              type="number"
+              min="1"
+              value={form.quantity || 1}
+              onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })}
+            />
+          </label>
+          <label>
+            Unit Price
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.unitPrice || 0}
+              onChange={(e) => setForm({ ...form, unitPrice: Number(e.target.value) })}
+            />
+          </label>
+          <label>
+            Table Number
+            <input
+              type="number"
+              min="1"
+              value={form.tableNumber || 1}
+              onChange={(e) => setForm({ ...form, tableNumber: Number(e.target.value) })}
+            />
+          </label>
+          <label>
+            Status
+            <select value={form.status || 'PENDING'} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+              <option>PENDING</option>
+              <option>PREPARING</option>
+              <option>READY</option>
+              <option>SERVED</option>
+              <option>CANCELLED</option>
+            </select>
+          </label>
+          <label style={{ gridColumn: '1 / -1' }}>
+            Special Requests
+            <input
+              placeholder="Ex: Window seat, no nuts, birthday setup"
+              value={form.specialRequest || ''}
+              onChange={(e) => setForm({ ...form, specialRequest: e.target.value })}
+            />
+          </label>
+          <div className="summary-card signature-card" style={{ gridColumn: '1 / -1', marginTop: '8px', padding: '14px', border: '1px solid rgba(183,147,91,0.35)' }}>
+            <p className="eyebrow">Record Preview</p>
+            <h3 style={{ marginBottom: '6px' }}>Total Amount: ${formatMoney((Number(form.quantity) || 0) * (Number(form.unitPrice) || 0))}</h3>
+            <p style={{ margin: 0, color: 'var(--charcoal-soft)' }}>
+              {form.menuItem || 'Reservation'} • {form.category || 'Dinner'} • {form.guests || 1} guests
+            </p>
+          </div>
+        </div>
       );
     }
     if (type === 'events') {
@@ -338,7 +436,16 @@ function OperationsPage({ type }) {
 
       <div className="ops-grid">
         <section className="ops-panel">
-          <h3>{editId ? 'Edit Record' : 'Create Record'}</h3>
+          <h3>
+            {type === 'restaurant'
+              ? (editId ? 'Edit Dining Record' : 'Create Dining Reservation / Order')
+              : (editId ? 'Edit Record' : 'Create Record')}
+          </h3>
+          {type === 'restaurant' && (
+            <p className="chart-sub" style={{ marginTop: 0 }}>
+              Fill all fields clearly to keep customer reservations and kitchen orders easy to track.
+            </p>
+          )}
           <form className="crud-form premium-form" onSubmit={handleCreateOrUpdate}>
             {renderFields()}
             <div style={{display: 'flex', gap: '12px'}}>
@@ -396,8 +503,10 @@ function OperationsPage({ type }) {
                     <th>Customer</th>
                     <th>Contact</th>
                     <th>Date & Time</th>
-                    <th>Reservation/Menu</th>
+                    <th>Meal Period</th>
+                    <th>Menu / Reservation</th>
                     <th>Guests</th>
+                    <th>Table</th>
                     <th>Status</th>
                     <th>Total</th>
                     <th>Action</th>
@@ -410,10 +519,12 @@ function OperationsPage({ type }) {
                       <td>{row.customerName || '-'}</td>
                       <td>{row.contact || '-'}</td>
                       <td>{formatDate(row.bookingDateTime)}</td>
-                      <td>{row.menuItem || row.category || '-'}</td>
+                      <td>{row.category || '-'}</td>
+                      <td>{row.menuItem || '-'}</td>
                       <td>{row.guests ?? '-'}</td>
+                      <td>{row.tableNumber ?? '-'}</td>
                       <td>{row.status || '-'}</td>
-                      <td>{row.totalAmount ?? '-'}</td>
+                      <td>${formatMoney(row.totalAmount)}</td>
                       <td>
                         <button type="button" className="secondary-btn" style={{ marginRight: '8px', padding: '6px 12px' }} onClick={() => handleEdit(row)}>Edit</button>
                         <button type="button" className="danger-btn" style={{ padding: '6px 12px' }} onClick={() => handleDelete(row)}>Delete</button>

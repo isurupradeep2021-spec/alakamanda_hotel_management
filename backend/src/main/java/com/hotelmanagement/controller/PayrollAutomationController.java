@@ -19,7 +19,7 @@ public class PayrollAutomationController {
     private final PayrollAutomationService payrollAutomationService;
 
     @PostMapping("/generate")
-    @PreAuthorize("hasAnyRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public List<PayrollRecord> generate(@RequestParam(required = false) Integer month,
                                         @RequestParam(required = false) Integer year) {
         YearMonth ym = YearMonth.now();
@@ -39,7 +39,7 @@ public class PayrollAutomationController {
     }
 
     @PutMapping("/{payrollId}/status")
-    @PreAuthorize("hasAnyRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public PayrollRecord setStatus(@PathVariable Long payrollId,
                                    @RequestParam PayrollPaymentStatus status) {
         return payrollAutomationService.markPaymentStatus(payrollId, status);

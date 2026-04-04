@@ -35,10 +35,11 @@ function RegisterPage() {
 
   return (
     <div className="auth-layout">
+      {/* Full Page 3D Background */}
+      <StarsBackground />
+
       {/* Left Hero Section */}
       <div className="auth-hero">
-        <StarsBackground />
-        
         <div className="auth-brand">
           <div className="brand-logo-mark"><span>H</span></div>
           HOTELFLOW & RESORTS

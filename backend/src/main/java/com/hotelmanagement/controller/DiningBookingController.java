@@ -29,6 +29,7 @@ public class DiningBookingController {
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RESTAURANT_MANAGER', 'CUSTOMER')")
     public DiningBooking create(@RequestBody DiningBooking booking) {
+        normalizeDiningBooking(booking);
         if (booking.getStatus() == null || booking.getStatus().isBlank()) {
             booking.setStatus("PENDING");
         }
@@ -43,6 +44,7 @@ public class DiningBookingController {
         DiningBooking existing = repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Dining booking not found"));
 
+        normalizeDiningBooking(booking);
         validateStatus(booking.getStatus());
 
         existing.setCustomerName(booking.getCustomerName());
@@ -88,6 +90,36 @@ public class DiningBookingController {
     private void validateStatus(String status) {
         if (status == null || !VALID_STATUS.contains(status.toUpperCase())) {
             throw new IllegalArgumentException("Invalid order status");
+        }
+    }
+
+    private void normalizeDiningBooking(DiningBooking booking) {
+        if (booking.getCustomerName() == null || booking.getCustomerName().isBlank()) {
+            throw new IllegalArgumentException("Customer name is required");
+        }
+        if (booking.getContact() == null || booking.getContact().isBlank()) {
+            throw new IllegalArgumentException("Contact is required");
+        }
+        if (booking.getGuests() <= 0) {
+            booking.setGuests(1);
+        }
+        if (booking.getBookingDateTime() == null) {
+            booking.setBookingDateTime(java.time.LocalDateTime.now());
+        }
+        if (booking.getCategory() == null || booking.getCategory().isBlank()) {
+            booking.setCategory("Dinner");
+        }
+        if (booking.getMenuItem() == null || booking.getMenuItem().isBlank()) {
+            booking.setMenuItem("Table Reservation");
+        }
+        if (booking.getQuantity() == null || booking.getQuantity() <= 0) {
+            booking.setQuantity(1);
+        }
+        if (booking.getUnitPrice() == null) {
+            booking.setUnitPrice(BigDecimal.ZERO);
+        }
+        if (booking.getTableNumber() == null || booking.getTableNumber() <= 0) {
+            booking.setTableNumber(1);
         }
     }
 

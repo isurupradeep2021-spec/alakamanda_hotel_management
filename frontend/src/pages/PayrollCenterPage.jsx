@@ -1,16 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  askChatbot,
   checkIn,
   checkOut,
+  downloadPayrollPayslip,
   generatePayroll,
-  getAttendanceHistory,
   getAttendanceSummary,
-  getLeaveHistory,
   getLatestStaffPayroll,
-  getPayrollInsights,
   getPayroll,
-  downloadPayslip,
+  getPayrollInsights,
   getStaffProfile,
   requestLeave
 } from '../api/service';
@@ -19,155 +16,171 @@ import { ROLES } from '../auth/role';
 
 function PayrollCenterPage() {
   const { user } = useAuth();
-  const [profile, setProfile] = useState(null);
-  const [summary, setSummary] = useState(null);
-  const [payroll, setPayroll] = useState(null);
-  const [attendanceHistory, setAttendanceHistory] = useState([]);
-  const [leaveHistory, setLeaveHistory] = useState([]);
-  const [payslips, setPayslips] = useState([]);
-  const [insights, setInsights] = useState(null);
-  const [leaveDate, setLeaveDate] = useState('');
-  const [leaveReason, setLeaveReason] = useState('');
-  const [chatOpen, setChatOpen] = useState(false);
-  const [question, setQuestion] = useState('');
-  const [chatMessages, setChatMessages] = useState([
-    { by: 'bot', text: 'Hello! Ask payroll questions like salary, overtime, leave, payslip, total expense, highest overtime, or generate payroll.' }
-  ]);
-  const [error, setError] = useState('');
-
   const isStaff = user?.role === ROLES.STAFF_MEMBER;
   const isManager = user?.role === ROLES.MANAGER;
   const isAdmin = user?.role === ROLES.ADMIN;
 
-  const ym = useMemo(() => {
-    const now = new Date();
-    return { month: now.getMonth() + 1, year: now.getFullYear() };
-  }, []);
+  const now = useMemo(() => new Date(), []);
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useState(now.getFullYear());
 
-  const loadStaff = async () => {
+  const [profile, setProfile] = useState(null);
+  const [attendanceSummary, setAttendanceSummary] = useState(null);
+  const [latestPayroll, setLatestPayroll] = useState(null);
+  const [payrollRows, setPayrollRows] = useState([]);
+  const [insights, setInsights] = useState(null);
+
+  const [leaveDate, setLeaveDate] = useState('');
+  const [leaveReason, setLeaveReason] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const resetMessages = () => {
     setError('');
-    try {
-      const [p, s, pr] = await Promise.all([
-        getStaffProfile(),
-        getAttendanceSummary(ym.month, ym.year),
-        getLatestStaffPayroll()
-      ]);
-      setProfile(p.data || null);
-      setSummary(s.data || null);
-      setPayroll(pr.data || null);
-      const [attendanceRes, leaveRes, payslipsRes] = await Promise.all([
-        getAttendanceHistory(ym.month, ym.year),
-        getLeaveHistory(ym.month, ym.year),
-        getPayroll()
-      ]);
-      setAttendanceHistory(attendanceRes.data || []);
-      setLeaveHistory(leaveRes.data || []);
-      setPayslips(payslipsRes.data || []);
-    } catch (e) {
-      setError(e.response?.data?.message || 'Failed to load staff payroll data');
-    }
+    setSuccess('');
   };
 
-  const loadInsights = async () => {
-    setError('');
+  const currency = (value) => Number(value || 0).toFixed(2);
+
+  const loadStaffView = async () => {
+    const [profileRes, summaryRes, latestRes, payrollRes] = await Promise.all([
+      getStaffProfile(),
+      getAttendanceSummary(month, year),
+      getLatestStaffPayroll(),
+      getPayroll()
+    ]);
+    setProfile(profileRes.data || null);
+    setAttendanceSummary(summaryRes.data || null);
+    setLatestPayroll(latestRes.data || null);
+    setPayrollRows(payrollRes.data || []);
+  };
+
+  const loadAdminManagerView = async () => {
+    const [payrollRes, insightsRes] = await Promise.all([
+      getPayroll(),
+      getPayrollInsights(month, year)
+    ]);
+    setPayrollRows(payrollRes.data || []);
+    setInsights(insightsRes.data || null);
+  };
+
+  const loadData = async () => {
+    setLoading(true);
+    resetMessages();
     try {
-      const res = await getPayrollInsights(ym.month, ym.year);
-      setInsights(res.data || null);
+      if (isStaff) {
+        await loadStaffView();
+      } else if (isAdmin || isManager) {
+        await loadAdminManagerView();
+      }
     } catch (e) {
-      setError(e.response?.data?.message || 'Failed to load insights');
+      setError(e.response?.data?.message || 'Failed to load payroll data');
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (isStaff || isManager) {
-      loadStaff();
-    }
-    if (isAdmin || isManager) {
-      loadInsights();
-    }
+    loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isStaff, isManager, isAdmin]);
+  }, [isStaff, isAdmin, isManager, month, year]);
 
   const onCheckIn = async () => {
+    setLoading(true);
+    resetMessages();
     try {
       await checkIn();
-      await loadStaff();
+      setSuccess('Checked in successfully');
+      await loadStaffView();
     } catch (e) {
       setError(e.response?.data?.message || 'Check-in failed');
+    } finally {
+      setLoading(false);
     }
   };
 
   const onCheckOut = async () => {
+    setLoading(true);
+    resetMessages();
     try {
       await checkOut();
-      await loadStaff();
+      setSuccess('Checked out successfully');
+      await loadStaffView();
     } catch (e) {
       setError(e.response?.data?.message || 'Check-out failed');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const onRequestLeave = async (e) => {
+  const onSubmitLeave = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    resetMessages();
     try {
       await requestLeave({ leaveDate, reason: leaveReason });
       setLeaveDate('');
       setLeaveReason('');
-      await loadStaff();
-    } catch (er) {
-      setError(er.response?.data?.message || 'Leave request failed');
+      setSuccess('Leave submitted successfully');
+      await loadStaffView();
+    } catch (e2) {
+      setError(e2.response?.data?.message || 'Leave request failed');
+    } finally {
+      setLoading(false);
     }
   };
 
   const onGeneratePayroll = async () => {
+    setLoading(true);
+    resetMessages();
     try {
-      await generatePayroll(ym.month, ym.year);
-      await loadInsights();
-      if (isManager || isStaff) {
-        await loadStaff();
-      }
+      await generatePayroll(month, year);
+      setSuccess(`Payroll generated for ${year}-${String(month).padStart(2, '0')}`);
+      await loadAdminManagerView();
     } catch (e) {
       setError(e.response?.data?.message || 'Payroll generation failed');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const onAsk = async (e) => {
-    e.preventDefault();
-    if (!question.trim()) return;
-
-    const q = question.trim();
-    setChatMessages((prev) => [...prev, { by: 'me', text: q }]);
-    setQuestion('');
-
+  const onDownloadPayslip = async (payrollId, payrollMonth) => {
+    resetMessages();
     try {
-      const res = await askChatbot(q);
-      setChatMessages((prev) => [...prev, { by: 'bot', text: res.data?.answer || 'No response' }]);
-    } catch (er) {
-      setChatMessages((prev) => [...prev, { by: 'bot', text: er.response?.data?.message || 'Chatbot failed' }]);
-    }
-  };
-
-  const onDownloadPayslip = async (id, month) => {
-    try {
-      const res = await downloadPayslip(id);
-      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const res = await downloadPayrollPayslip(payrollId);
+      const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `Payslip_${month}.pdf`);
+      link.download = `payslip-${payrollMonth || payrollId}.pdf`;
       document.body.appendChild(link);
       link.click();
-      link.parentNode.removeChild(link);
-    } catch (er) {
-      setError('Cannot download payslip');
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e.response?.data?.message || 'Failed to download payslip');
     }
   };
+
+  const totals = useMemo(() => {
+    return payrollRows.reduce(
+      (acc, row) => {
+        acc.net += Number(row.netSalary || 0);
+        acc.overtime += Number(row.overtimePay || 0);
+        acc.deductions += Number(row.deductions || 0) + Number(row.leaveDeduction || 0) + Number(row.tax || 0);
+        return acc;
+      },
+      { net: 0, overtime: 0, deductions: 0 }
+    );
+  }, [payrollRows]);
 
   return (
     <div className="module-page dashboard-luxe">
       <div className="dash-hero luxe-hero">
         <div className="module-head">
-          <p className="eyebrow">Payroll Automation</p>
-          <h2>Payroll Management Center</h2>
-          <p>Attendance, overtime, leaves, monthly payroll and chatbot assistance in one place.</p>
+          <p className="eyebrow">Payroll System</p>
+          <h2>Payroll Dashboard</h2>
+          <p>Simple payroll operations with clear salary, overtime, deductions, and payslip access.</p>
         </div>
         <div className="hero-chip">
           <i className="bi bi-cash-stack" />
@@ -175,136 +188,133 @@ function PayrollCenterPage() {
         </div>
       </div>
 
-      {error && <div className="inline-error">{error}</div>}
+      <div className="crud-form premium-form" style={{ marginBottom: 0 }}>
+        <input type="number" min="2000" max="2100" value={year} onChange={(e) => setYear(Number(e.target.value))} />
+        <input type="number" min="1" max="12" value={month} onChange={(e) => setMonth(Number(e.target.value))} />
+        {(isAdmin || isManager) && (
+          <button type="button" className="primary-action" disabled={loading} onClick={onGeneratePayroll}>
+            Generate Monthly Payroll
+          </button>
+        )}
+        <button type="button" className="secondary-btn" disabled={loading} onClick={loadData}>
+          Refresh Data
+        </button>
+      </div>
 
-      {(isStaff || isManager) && (
+      {error && <div className="inline-error">{error}</div>}
+      {success && <div className="inline-success">{success}</div>}
+
+      {isStaff && (
         <>
           <div className="summary-grid premium-grid dashboard-kpis">
-            <article className="summary-card premium-card signature-card"><div className="kpi-top"><i className="bi bi-person-badge" /><span>Employee ID</span></div><h3>{profile?.employeeId || '-'}</h3><p><i className="bi bi-shield-check" /> {profile?.employmentStatus || '-'}</p></article>
-            <article className="summary-card premium-card signature-card"><div className="kpi-top"><i className="bi bi-clock-history" /><span>Overtime (Month)</span></div><h3>{summary?.totalOvertimeHours ?? '-'}</h3><p><i className="bi bi-graph-up-arrow" /> Auto from checkout</p></article>
-            <article className="summary-card premium-card signature-card"><div className="kpi-top"><i className="bi bi-calendar2-x" /><span>Leave Days</span></div><h3>{summary?.leaveDays ?? '-'}</h3><p><i className="bi bi-info-circle" /> Max paid: {summary?.maxPaidLeaves ?? 5}</p></article>
-            <article className="summary-card premium-card signature-card"><div className="kpi-top"><i className="bi bi-currency-dollar" /><span>Latest Salary</span></div><h3>{payroll?.netSalary ?? '-'}</h3><p><i className="bi bi-receipt" /> {payroll?.payrollMonth || 'No payroll yet'}</p></article>
+            <article className="summary-card premium-card signature-card">
+              <div className="kpi-top"><i className="bi bi-person-badge" /><span>Employee</span></div>
+              <h3>{profile?.employeeId || '-'}</h3>
+              <p><i className="bi bi-person-check" /> {profile?.fullName || '-'}</p>
+            </article>
+            <article className="summary-card premium-card signature-card">
+              <div className="kpi-top"><i className="bi bi-clock-history" /><span>Overtime Hours</span></div>
+              <h3>{attendanceSummary?.totalOvertimeHours ?? 0}</h3>
+              <p><i className="bi bi-calendar-week" /> {year}-{String(month).padStart(2, '0')}</p>
+            </article>
+            <article className="summary-card premium-card signature-card">
+              <div className="kpi-top"><i className="bi bi-currency-dollar" /><span>Latest Net Salary</span></div>
+              <h3>{currency(latestPayroll?.netSalary)}</h3>
+              <p><i className="bi bi-receipt" /> {latestPayroll?.payrollMonth || 'No payroll yet'}</p>
+            </article>
           </div>
 
           <div className="ops-grid">
             <section className="ops-panel">
-              <h3>Profile</h3>
-              <div className="profile-grid">
-                <p><strong>Name:</strong> {profile?.fullName || '-'}</p>
-                <p><strong>Role:</strong> {profile?.employmentRole || '-'}</p>
-                <p><strong>Basic Salary:</strong> {profile?.basicSalary || '-'}</p>
-                <p><strong>Email:</strong> {profile?.email || '-'}</p>
-                <p><strong>Contact:</strong> {profile?.phone || '-'}</p>
-                <p><strong>Join Date:</strong> {profile?.joinDate || '-'}</p>
-              </div>
-            </section>
-
-            <section className="ops-panel">
-              <h3>Attendance</h3>
+              <h3>Attendance Actions</h3>
               <div className="action-row">
-                <button type="button" className="primary-action" onClick={onCheckIn}>Check-In</button>
-                <button type="button" className="primary-action" onClick={onCheckOut}>Check-Out</button>
+                <button type="button" className="primary-action" disabled={loading} onClick={onCheckIn}>Clock In</button>
+                <button type="button" className="primary-action" disabled={loading} onClick={onCheckOut}>Clock Out</button>
               </div>
-              <p className="chart-sub">Working hours per day: 8. Overtime is calculated automatically on checkout.</p>
-              <div className="profile-grid">
-                <p><strong>Working Days:</strong> {summary?.workingDays ?? '-'}</p>
-                <p><strong>Absent Days:</strong> {summary?.absentDays ?? '-'}</p>
-                <p><strong>Late Days:</strong> {summary?.lateDays ?? '-'}</p>
+              <div className="profile-grid" style={{ marginTop: 20 }}>
+                <p><strong>Working Days:</strong> {attendanceSummary?.workingDays ?? 0}</p>
+                <p><strong>Leave Days:</strong> {attendanceSummary?.leaveDays ?? 0}</p>
+                <p><strong>Absent Days:</strong> {attendanceSummary?.absentDays ?? 0}</p>
+                <p><strong>Late Days:</strong> {attendanceSummary?.lateDays ?? 0}</p>
               </div>
             </section>
 
             <section className="ops-panel">
-              <h3>Leave Management</h3>
-              <form className="crud-form premium-form" onSubmit={onRequestLeave}>
+              <h3>Leave Request</h3>
+              <form className="crud-form premium-form" onSubmit={onSubmitLeave}>
                 <input type="date" value={leaveDate} onChange={(e) => setLeaveDate(e.target.value)} required />
-                <input placeholder="Leave reason" value={leaveReason} onChange={(e) => setLeaveReason(e.target.value)} />
-                <button type="submit" className="primary-action">Submit Leave</button>
+                <input placeholder="Reason for leave" value={leaveReason} onChange={(e) => setLeaveReason(e.target.value)} />
+                <button type="submit" className="primary-action" disabled={loading}>Submit Leave</button>
               </form>
-              <p className="chart-sub" style={{ marginTop: '8px' }}>Leave records this month: {leaveHistory.length}</p>
             </section>
-          </div>
-
-          <div className="table-wrap ops-table-wrap">
-            <h3 className="ops-table-title">Daily Attendance History</h3>
-            <table className="data-table">
-              <thead><tr><th>Date</th><th>Check-In</th><th>Check-Out</th><th>Hours</th><th>Overtime</th></tr></thead>
-              <tbody>
-                {attendanceHistory.map((a) => (
-                  <tr key={a.id}>
-                    <td>{a.attendanceDate}</td>
-                    <td>{a.checkInTime ? new Date(a.checkInTime).toLocaleTimeString() : '-'}</td>
-                    <td>{a.checkOutTime ? new Date(a.checkOutTime).toLocaleTimeString() : '-'}</td>
-                    <td>{a.workingHours ?? '-'}</td>
-                    <td>{a.overtimeHours ?? '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="table-wrap ops-table-wrap" style={{ marginTop: '24px' }}>
-            <h3 className="ops-table-title">My Payslip History</h3>
-            <table className="data-table">
-              <thead><tr><th>Month</th><th>Status</th><th>Base Salary</th><th>Overtime</th><th>Deductions</th><th>Net Salary</th><th>Action</th></tr></thead>
-              <tbody>
-                {payslips.map((p) => (
-                  <tr key={p.id}>
-                    <td>{p.payrollMonth || '-'}</td>
-                    <td>{p.paymentStatus || '-'}</td>
-                    <td>${p.baseSalary ?? 0}</td>
-                    <td>${(p.overtimePay ?? 0) + (p.bonus ?? 0)}</td>
-                    <td>${(p.deductions ?? 0) + (p.epf ?? 0) + (p.tax ?? 0)}</td>
-                    <td style={{fontWeight:'bold'}}>${p.netSalary ?? 0}</td>
-                    <td>
-                      <button type="button" className="secondary-btn" onClick={() => onDownloadPayslip(p.id, p.payrollMonth)}>Download PDF</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         </>
       )}
 
       {(isAdmin || isManager) && (
-        <div className="ops-grid">
-          <section className="ops-panel">
-            <h3>Admin / Manager Payroll Insights</h3>
-            <div className="summary-grid premium-grid dashboard-kpis">
-              <article className="summary-card premium-card signature-card"><div className="kpi-top"><i className="bi bi-cash-stack" /><span>Total Expense</span></div><h3>{insights?.totalSalaryExpense ?? '-'}</h3><p><i className="bi bi-calendar-event" /> {insights?.year}-{insights?.month}</p></article>
-              <article className="summary-card premium-card signature-card"><div className="kpi-top"><i className="bi bi-trophy" /><span>Highest Overtime</span></div><h3>{insights?.highestOvertimeHours ?? '-'}</h3><p><i className="bi bi-person" /> {insights?.highestOvertimeEmployee || '-'}</p></article>
-              <article className="summary-card premium-card signature-card"><div className="kpi-top"><i className="bi bi-files" /><span>Payroll Records</span></div><h3>{insights?.recordCount ?? '-'}</h3><p><i className="bi bi-check2-circle" /> Generated records</p></article>
-            </div>
-            {isAdmin && (
-              <div className="action-row" style={{ marginTop: '8px' }}>
-                <button type="button" className="primary-action" onClick={onGeneratePayroll}>Generate Payroll This Month</button>
-              </div>
-            )}
-          </section>
+        <div className="summary-grid premium-grid dashboard-kpis">
+          <article className="summary-card premium-card signature-card">
+            <div className="kpi-top"><i className="bi bi-people" /><span>Total Employees Paid</span></div>
+            <h3>{insights?.recordCount ?? payrollRows.length}</h3>
+            <p><i className="bi bi-calendar-event" /> {year}-{String(month).padStart(2, '0')}</p>
+          </article>
+          <article className="summary-card premium-card signature-card">
+            <div className="kpi-top"><i className="bi bi-cash-stack" /><span>Total Salary Paid</span></div>
+            <h3>{currency(insights?.totalSalaryExpense ?? totals.net)}</h3>
+            <p><i className="bi bi-bar-chart" /> Monthly summary</p>
+          </article>
+          <article className="summary-card premium-card signature-card">
+            <div className="kpi-top"><i className="bi bi-clock-history" /><span>Highest Overtime</span></div>
+            <h3>{insights?.highestOvertimeHours ?? 0}</h3>
+            <p><i className="bi bi-person" /> {insights?.highestOvertimeEmployee || 'N/A'}</p>
+          </article>
         </div>
       )}
 
-      <button type="button" className="chatbot-fab" onClick={() => setChatOpen((v) => !v)}>
-        <i className="bi bi-chat-dots" />
-      </button>
-
-      {chatOpen && (
-        <div className="chatbot-panel">
-          <div className="chatbot-head">
-            <strong>Payroll Assistant</strong>
-            <button type="button" onClick={() => setChatOpen(false)}>x</button>
-          </div>
-          <div className="chatbot-body">
-            {chatMessages.map((m, i) => (
-              <div key={`${m.by}-${i}`} className={`chat-msg ${m.by}`}>{m.text}</div>
+      <div className="table-wrap ops-table-wrap">
+        <h3 className="ops-table-title">{isStaff ? 'My Salary & Payslips' : 'Payroll Records'}</h3>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Month</th>
+              <th>Base Salary</th>
+              <th>Overtime</th>
+              <th>Deductions</th>
+              <th>Net Salary</th>
+              <th>Status</th>
+              <th>Payslip</th>
+            </tr>
+          </thead>
+          <tbody>
+            {payrollRows.map((row) => (
+              <tr key={row.id}>
+                <td>{row.employeeName || '-'}</td>
+                <td>{row.payrollMonth || '-'}</td>
+                <td>{currency(row.baseSalary)}</td>
+                <td>{currency(row.overtimePay)}</td>
+                <td>{currency(Number(row.deductions || 0) + Number(row.leaveDeduction || 0) + Number(row.tax || 0))}</td>
+                <td style={{ fontWeight: 600 }}>{currency(row.netSalary)}</td>
+                <td>{row.paymentStatus || 'UNPAID'}</td>
+                <td>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={() => onDownloadPayslip(row.id, row.payrollMonth)}
+                  >
+                    Download PDF
+                  </button>
+                </td>
+              </tr>
             ))}
-          </div>
-          <form className="chatbot-form" onSubmit={onAsk}>
-            <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Ask about salary, overtime, leaves, payslip..." />
-            <button type="submit" className="primary-action">Ask</button>
-          </form>
-        </div>
-      )}
+            {payrollRows.length === 0 && (
+              <tr>
+                <td colSpan={8}>No payroll records available for selected period.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

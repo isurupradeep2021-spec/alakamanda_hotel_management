@@ -23,6 +23,7 @@ public class DataSeeder implements CommandLineRunner {
     private final EventBookingRepository eventBookingRepository;
     private final RoomBookingRepository roomBookingRepository;
     private final PayrollRecordRepository payrollRecordRepository;
+    private final PayrollProfileRepository payrollProfileRepository;
     private final PasswordEncoder passwordEncoder;
     private final JdbcTemplate jdbcTemplate;
 
@@ -32,6 +33,7 @@ public class DataSeeder implements CommandLineRunner {
         seedUsers();
         seedRooms();
         seedBookings();
+        seedPayrollProfiles();
         seedPayroll();
     }
 
@@ -222,5 +224,40 @@ public class DataSeeder implements CommandLineRunner {
                 .payrollMonth(YearMonth.now().toString())
                 .notes("Seed payroll")
                 .build());
+    }
+
+    private void seedPayrollProfiles() {
+        upsertPayrollProfile("admin@hotel.com", ContractType.ADMIN, PayCycle.MONTHLY);
+        upsertPayrollProfile("manager@hotel.com", ContractType.MANAGER, PayCycle.MONTHLY);
+        upsertPayrollProfile("staff@hotel.com", ContractType.STAFF_MEMBER, PayCycle.MONTHLY);
+    }
+
+    private void upsertPayrollProfile(String email, ContractType contractType, PayCycle payCycle) {
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null) {
+            return;
+        }
+        PayrollProfile profile = payrollProfileRepository.findByUser(user).orElseGet(PayrollProfile::new);
+        profile.setUser(user);
+        profile.setEmployeeCode(user.getEmployeeId());
+        profile.setEmployeeName(user.getFullName());
+        profile.setContractType(contractType);
+        profile.setDepartment(user.getEmploymentRole() == null ? "General" : user.getEmploymentRole());
+        profile.setPayCycle(payCycle);
+        profile.setBaseSalary(user.getBasicSalary() == null ? BigDecimal.ZERO : user.getBasicSalary());
+        if (profile.getTaxRate() == null) {
+            profile.setTaxRate(contractType == ContractType.MANAGER ? new BigDecimal("0.18")
+                    : contractType == ContractType.ADMIN ? new BigDecimal("0.12")
+                    : new BigDecimal("0.08"));
+        }
+        if (profile.getInsuranceRate() == null) {
+            profile.setInsuranceRate(new BigDecimal("0.03"));
+        }
+        if (profile.getOvertimeMultiplier() == null) {
+            profile.setOvertimeMultiplier(new BigDecimal("1.5"));
+        }
+        profile.setActive(true);
+        profile.setArchived(false);
+        payrollProfileRepository.save(profile);
     }
 }

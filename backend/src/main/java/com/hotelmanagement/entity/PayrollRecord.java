@@ -23,6 +23,10 @@ public class PayrollRecord {
     @JoinColumn(name = "user_id")
     private User user;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "payroll_run_id")
+    private PayrollRun payrollRun;
+
     private String employeeName;
 
     private String employeeId;
@@ -52,9 +56,19 @@ public class PayrollRecord {
 
     private BigDecimal overtimePay;
 
+    private BigDecimal grossSalary;
+
+    private BigDecimal shiftAllowance;
+
     private BigDecimal leaveDeduction;
 
     private BigDecimal deductions;
+
+    private BigDecimal insuranceDeduction;
+
+    private BigDecimal loanRepayment;
+
+    private BigDecimal carryForwardAmount;
 
     private BigDecimal epf;
 
@@ -66,6 +80,9 @@ public class PayrollRecord {
     @Enumerated(EnumType.STRING)
     @Builder.Default
     private PayrollPaymentStatus paymentStatus = PayrollPaymentStatus.UNPAID;
+
+    @Builder.Default
+    private boolean locked = false;
 
     private LocalDate payDate;
 
