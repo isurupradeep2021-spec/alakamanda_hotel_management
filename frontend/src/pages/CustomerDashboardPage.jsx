@@ -185,128 +185,13 @@ function CustomerDashboardPage() {
                     <td><span className={`room-status-badge ${b.status === 'CONFIRMED' ? 'ok' : ''}`}>{b.status}</span></td>
                   </tr>
                 ))}
-            </div>
-
-            <div className="dash-section">
-                <h3>Quick Actions</h3>
-                <div className="customer-actions">
-                    <Link className="module-card action-card action-tile signature-action" to="/view-rooms">
-                        <i className="bi bi-building" />
-                        <span>View Rooms</span>
-                    </Link>
-                    <Link className="module-card action-card action-tile signature-action" to="/book-room">
-                        <i className="bi bi-door-open" />
-                        <span>Book Room</span>
-                    </Link>
-                    <Link className="module-card action-card action-tile signature-action" to="/view-menu">
-                        <i className="bi bi-cup-hot" />
-                        <span>View Menu</span>
-                    </Link>
-                    <Link className="module-card action-card action-tile signature-action" to="/book-event">
-                        <i className="bi bi-calendar-plus" />
-                        <span>Book Event</span>
-                    </Link>
-                    <Link className="module-card action-card action-tile signature-action" to="/profile">
-                        <i className="bi bi-person-circle" />
-                        <span>My Profile</span>
-                    </Link>
-                </div>
-            </div>
-
-            {myDiningBookings.length > 0 && (
-                <div className="dash-section" style={{ marginTop: "40px" }}>
-                    <h3>My Dining Reservations</h3>
-                    <div className="table-wrap ops-table-wrap">
-                        <table className="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Restaurant / Request</th>
-                                    <th>Date & Time</th>
-                                    <th>Guests</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {myDiningBookings.map((b) => (
-                                    <tr key={b.id}>
-                                        <td style={{ fontWeight: "600" }}>{b.menuItem || "Reservation"}</td>
-                                        <td>{new Date(b.bookingDateTime).toLocaleString()}</td>
-                                        <td>{b.guests} Guests</td>
-                                        <td>
-                                            <span className={`room-status-badge ${b.status === "CONFIRMED" ? "ok" : ""}`}>{b.status}</span>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
-            {myRoomBookings.length > 0 && (
-                <div className="dash-section" style={{ marginTop: "40px" }}>
-                    <h3>My Room Reservations</h3>
-                    <div className="table-wrap ops-table-wrap">
-                        <table className="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Room Number</th>
-                                    <th>Check In</th>
-                                    <th>Check Out</th>
-                                    <th>Guests</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {myRoomBookings.map((b) => (
-                                    <tr key={b.id}>
-                                        <td style={{ fontWeight: "600" }}>{b.roomNumber}</td>
-                                        <td>{new Date(b.checkInDate).toLocaleDateString()}</td>
-                                        <td>{new Date(b.checkOutDate).toLocaleDateString()}</td>
-                                        <td>{b.guestCount} Guests</td>
-                                        <td>
-                                            <span className={`room-status-badge ${b.status === "CONFIRMED" ? "ok" : ""}`}>{b.status}</span>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
-
-            {myEventBookings.length > 0 && (
-                <div className="dash-section" style={{ marginTop: "40px" }}>
-                    <h3>My Event Reservations</h3>
-                    <div className="table-wrap ops-table-wrap">
-                        <table className="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Event Type</th>
-                                    <th>Hall / Venue</th>
-                                    <th>Date & Time</th>
-                                    <th>Attendees</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {myEventBookings.map((b) => (
-                                    <tr key={b.id}>
-                                        <td style={{ fontWeight: "600" }}>{b.eventType}</td>
-                                        <td>{b.hallName}</td>
-                                        <td>{new Date(b.eventDateTime).toLocaleString()}</td>
-                                        <td>{b.attendees} People</td>
-                                        <td>
-                                            <span className={`room-status-badge ${b.status === "CONFIRMED" ? "ok" : ""}`}>{b.status}</span>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
+              </tbody>
+            </table>
+          </div>
         </div>
-    );
+      )}
+    </div>
+  );
 }
 
 function statusTone(status) {

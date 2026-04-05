@@ -1,12 +1,15 @@
 package com.hotelmanagement.controller;
 
 import com.hotelmanagement.dto.PriceBreakdownDto;
+import com.hotelmanagement.dto.RoomBookingResponse;
 import com.hotelmanagement.entity.Room;
 import com.hotelmanagement.entity.RoomBooking;
 import com.hotelmanagement.repository.RoomBookingRepository;
 import com.hotelmanagement.repository.RoomRepository;
 import com.hotelmanagement.service.PricingService;
+import com.hotelmanagement.service.RoomBookingService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,6 +29,9 @@ public class RoomBookingController {
     private final RoomBookingRepository repository;
     private final RoomRepository roomRepository;
     private final PricingService pricingService;
+
+    @Autowired
+    RoomBookingService roomBookingService;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'CUSTOMER')")

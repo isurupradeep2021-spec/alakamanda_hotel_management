@@ -6,20 +6,27 @@ import { getRoomBookingInsights, getSummary } from "../api/service";
 import CustomerDashboardPage from "./CustomerDashboardPage";
 
 function DashboardPage() {
-    const { user } = useAuth();
-    const menu = getAllowedMenuForRole(user?.role);
-    const [summary, setSummary] = useState(null);
-    const [roomInsights, setRoomInsights] = useState({ topBookedRooms: [], leastBookedRooms: [] });
-    const isManager = user?.role === ROLES.MANAGER;
+  const { user } = useAuth();
+  const menu = getAllowedMenuForRole(user?.role);
+  const [summary, setSummary] = useState(null);
+  const [roomInsights, setRoomInsights] = useState({ topBookedRooms: [], leastBookedRooms: [] });
+  const isManager = user?.role === ROLES.MANAGER;
 
-    if (user?.role === ROLES.CUSTOMER) {
-        return <CustomerDashboardPage />;
-    }
+  useEffect(() => {
+    getSummary()
+      .then((summaryRes) => setSummary(summaryRes.data))
+      .catch(() => setSummary(null));
 
-    useEffect(() => {
-        getSummary()
-            .then((summaryRes) => setSummary(summaryRes.data))
-            .catch(() => setSummary(null));
+    getRoomBookingInsights()
+      .then((insightsRes) => {
+        setRoomInsights(insightsRes.data || { topBookedRooms: [], leastBookedRooms: [] });
+      })
+      .catch(() => setRoomInsights({ topBookedRooms: [], leastBookedRooms: [] }));
+  }, []);
+
+  if (user?.role === ROLES.CUSTOMER) {
+    return <CustomerDashboardPage />;
+  }
 
   const stats = [
     { key: 'rooms', label: 'Total Rooms', icon: 'bi-building', value: summary?.rooms ?? '-', trend: '+6% this week' },
@@ -36,39 +43,32 @@ function DashboardPage() {
     `Restaurant order volume: ${summary?.restaurantOrders ?? '-'}`
   ];
 
-    const activityFeed = [
-        `Rooms currently listed: ${summary?.rooms ?? "-"}`,
-        `New room bookings recorded: ${summary?.roomBookings ?? "-"}`,
-        `Active event pipeline count: ${summary?.eventBookings ?? "-"}`,
-        `Restaurant order volume: ${summary?.restaurantOrders ?? "-"}`,
-    ];
+  const managerKpis = [
+    {
+      key: "roomUtilization",
+      label: "Room Utilization",
+      icon: "bi-house-check",
+      value: summary?.rooms && summary?.roomBookings ? `${Math.min(100, Math.round((summary.roomBookings / Math.max(summary.rooms, 1)) * 100))}%` : "-",
+      trend: "Bookings vs inventory",
+    },
+    {
+      key: "opsLoad",
+      label: "Operations Load",
+      icon: "bi-speedometer",
+      value: summary?.restaurantOrders != null && summary?.eventBookings != null ? summary.restaurantOrders + summary.eventBookings : "-",
+      trend: "Dining + events volume",
+    },
+    {
+      key: "hotRoom",
+      label: "Most Demanded Room",
+      icon: "bi-fire",
+      value: roomInsights.topBookedRooms?.[0]?.roomNumber || "-",
+      trend: roomInsights.topBookedRooms?.[0]?.bookingCount != null ? `${roomInsights.topBookedRooms[0].bookingCount} bookings` : "No demand data",
+    },
+  ];
 
-    const managerKpis = [
-        {
-            key: "roomUtilization",
-            label: "Room Utilization",
-            icon: "bi-house-check",
-            value: summary?.rooms && summary?.roomBookings ? `${Math.min(100, Math.round((summary.roomBookings / Math.max(summary.rooms, 1)) * 100))}%` : "-",
-            trend: "Bookings vs inventory",
-        },
-        {
-            key: "opsLoad",
-            label: "Operations Load",
-            icon: "bi-speedometer",
-            value: summary?.restaurantOrders != null && summary?.eventBookings != null ? summary.restaurantOrders + summary.eventBookings : "-",
-            trend: "Dining + events volume",
-        },
-        {
-            key: "hotRoom",
-            label: "Most Demanded Room",
-            icon: "bi-fire",
-            value: roomInsights.topBookedRooms?.[0]?.roomNumber || "-",
-            trend: roomInsights.topBookedRooms?.[0]?.bookingCount != null ? `${roomInsights.topBookedRooms[0].bookingCount} bookings` : "No demand data",
-        },
-    ];
-
-    return (
-        <div className="module-page dashboard-luxe">
+  return (
+    <div className="module-page dashboard-luxe">
             <div className="dash-hero luxe-hero">
                 <div className="module-head">
                     <p className="eyebrow">Morning Briefing</p>
@@ -186,8 +186,8 @@ function DashboardPage() {
                     </article>
                 </div>
             </div>
-        </div>
-    );
+    </div>
+  );
 }
 
 export default DashboardPage;

@@ -6,6 +6,10 @@ export const registerApi = (payload) => http.post("/auth/register", payload);
 export const getSummary = () => http.get("/dashboard/summary");
 export const getRoomBookingInsights = () => http.get("/dashboard/room-booking-insights");
 export const getUsers = () => http.get("/users");
+export const getStaffMembers = () => http.get("/staff");
+export const createStaffMember = (payload) => http.post("/staff", payload);
+export const updateStaffMember = (id, payload) => http.put(`/staff/${id}`, payload);
+export const deleteStaffMember = (id) => http.delete(`/staff/${id}`);
 
 export const getRooms = () => http.get("/rooms");
 export const createRoom = (payload) => http.post("/rooms", payload);
@@ -45,6 +49,39 @@ export const createPayroll = (payload) => http.post("/payroll", payload);
 export const updatePayroll = (id, payload) => http.put(`/payroll/${id}`, payload);
 export const deletePayroll = (id) => http.delete(`/payroll/${id}`);
 export const payrollSummary = (month) => http.get("/payroll/summary", { params: month ? { month } : {} });
+export const getPayrollProfiles = (params) => http.get("/payroll/profiles", { params });
+export const createPayrollProfile = (payload) => http.post("/payroll/profiles", payload);
+export const updatePayrollProfile = (id, payload) => http.put(`/payroll/profiles/${id}`, payload);
+export const archivePayrollProfile = (id) => http.delete(`/payroll/profiles/${id}`);
+export const verifyPayrollBank = (id, verified = true) => http.post(`/payroll/profiles/${id}/verify-bank`, null, { params: { verified } });
+export const finalSettlementPayrollProfile = (id, carryForwardAmount) =>
+  http.post(`/payroll/profiles/${id}/final-settlement`, null, {
+    params: carryForwardAmount == null ? {} : { carryForwardAmount }
+  });
+export const getPayrollRuns = (status) => http.get("/payroll/runs", { params: status ? { status } : {} });
+export const createPayrollRun = (payload) => http.post("/payroll/runs", payload);
+export const managerReviewPayrollRun = (runId, note) =>
+  http.post(`/payroll/runs/${runId}/manager-review`, note ? { note } : {});
+export const adminApprovePayrollRun = (runId, note) =>
+  http.post(`/payroll/runs/${runId}/admin-approve`, note ? { note } : {});
+export const financeReleasePayrollRun = (runId, note) =>
+  http.post(`/payroll/runs/${runId}/finance-release`, note ? { note } : {});
+export const deletePayrollRun = (runId) => http.delete(`/payroll/runs/${runId}`);
+export const getPayrollDashboard = () => http.get("/payroll/runs/dashboard");
+export const getPayrollMonthlySummary = (year, month) =>
+  http.get("/payroll/runs/reports/monthly-summary", { params: { year, month } });
+export const getPayrollYtd = (employeeCode, year) =>
+  http.get("/payroll/runs/reports/ytd", { params: { employeeCode, year } });
+export const getPayrollTaxLiability = (year) =>
+  http.get("/payroll/runs/reports/tax-liability", { params: { year } });
+export const getPayrollCostTrend = (months = 12) =>
+  http.get("/payroll/runs/reports/cost-trend", { params: { months } });
+export const exportPayrollReport = (year, month, format = "excel") =>
+  http.get("/payroll/runs/reports/export", {
+    params: { year, month, format },
+    responseType: "blob"
+  });
+export const getPayrollAuditLogs = (params) => http.get("/payroll/audit", { params });
 
 export const getStaffProfile = () => http.get("/staff/profile");
 export const checkIn = () => http.post("/staff/attendance/check-in");
@@ -55,6 +92,7 @@ export const requestLeave = (payload) => http.post("/staff/leave", payload);
 export const getLeaveHistory = (month, year) => http.get("/staff/leave", { params: { month, year } });
 export const getLatestStaffPayroll = () => http.get("/staff/payroll/latest");
 export const downloadPayslip = (payrollId) => http.get(`/staff/payslip/${payrollId}`, { responseType: "blob" });
+export const downloadPayrollPayslip = downloadPayslip;
 
 export const generatePayroll = (month, year) => http.post("/payroll/automation/generate", null, { params: { month, year } });
 export const getPayrollInsights = (month, year) => http.get("/payroll/automation/insights", { params: { month, year } });
