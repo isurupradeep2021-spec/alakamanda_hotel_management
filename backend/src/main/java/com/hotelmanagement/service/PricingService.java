@@ -48,6 +48,7 @@ public class PricingService {
     public PriceBreakdownDto calculatePrice(Room room, LocalDate checkInDate, LocalDate checkOutDate) {
         long numberOfNights = ChronoUnit.DAYS.between(checkInDate, checkOutDate);
         
+        // Pricing date validation
         if (numberOfNights <= 0) {
             throw new IllegalArgumentException("Check-out date must be after check-in date");
         }

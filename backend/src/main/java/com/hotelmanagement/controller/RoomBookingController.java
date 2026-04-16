@@ -3,10 +3,13 @@ package com.hotelmanagement.controller;
 import com.hotelmanagement.dto.PriceBreakdownDto;
 import com.hotelmanagement.entity.Room;
 import com.hotelmanagement.entity.RoomBooking;
+import com.hotelmanagement.entity.User;
 import com.hotelmanagement.repository.RoomBookingRepository;
 import com.hotelmanagement.repository.RoomRepository;
+import com.hotelmanagement.repository.UserRepository;
 import com.hotelmanagement.service.PricingService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,6 +28,7 @@ public class RoomBookingController {
 
     private final RoomBookingRepository repository;
     private final RoomRepository roomRepository;
+    private final UserRepository userRepository;
     private final PricingService pricingService;
 
     @GetMapping
@@ -35,13 +39,15 @@ public class RoomBookingController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'CUSTOMER')")
-    public RoomBooking create(@RequestBody RoomBooking booking) {
+    public RoomBooking create(@RequestBody RoomBooking booking, Authentication authentication) {
+        populateCustomerIdentityForCustomerRole(booking, authentication);
         validateDates(booking.getCheckInDate(), booking.getCheckOutDate());
         ensureNoOverlap(booking.getRoomNumber(), booking.getCheckInDate(), booking.getCheckOutDate(), null);
 
         Room room = roomRepository.findByRoomNumber(booking.getRoomNumber())
                 .orElseThrow(() -> new IllegalArgumentException("Room not found"));
 
+        //Capacity vs guest count
         if (room.getCapacity() != null && booking.getGuestCount() != null && booking.getGuestCount() > room.getCapacity()) {
             throw new IllegalArgumentException("Guest count exceeds room capacity");
         }
@@ -52,6 +58,39 @@ public class RoomBookingController {
         RoomBooking saved = repository.save(booking);
         refreshRoomStatus(booking.getRoomNumber());
         return saved;
+    }
+
+    private void populateCustomerIdentityForCustomerRole(RoomBooking booking, Authentication authentication) {
+        if (authentication == null || authentication.getAuthorities() == null) {
+            return;
+        }
+
+        boolean isCustomer = authentication.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_CUSTOMER".equalsIgnoreCase(a.getAuthority()));
+        if (!isCustomer) {
+            return;
+        }
+
+        String email = authentication.getName();
+        if (email == null || email.isBlank()) {
+            return;
+        }
+
+        boolean missingEmail = booking.getCustomerEmail() == null || booking.getCustomerEmail().isBlank();
+        boolean missingName = booking.getCustomerName() == null || booking.getCustomerName().isBlank();
+        if (!missingEmail && !missingName) {
+            return;
+        }
+
+        User currentUser = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("Authenticated customer not found"));
+
+        if (missingEmail) {
+            booking.setCustomerEmail(currentUser.getEmail());
+        }
+        if (missingName) {
+            booking.setCustomerName(currentUser.getFullName());
+        }
     }
 
     @PutMapping("/{id}")
@@ -179,12 +218,14 @@ public class RoomBookingController {
         );
     }
 
+    //Date validation
     private void validateDates(LocalDate checkIn, LocalDate checkOut) {
         if (checkIn == null || checkOut == null || !checkOut.isAfter(checkIn)) {
             throw new IllegalArgumentException("Invalid check-in/check-out dates");
         }
     }
 
+    //Overlap validation
     private void ensureNoOverlap(String roomNumber, LocalDate checkIn, LocalDate checkOut, Long currentId) {
         List<RoomBooking> existing = currentId == null
                 ? repository.findByRoomNumber(roomNumber)

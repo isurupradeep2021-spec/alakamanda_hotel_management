@@ -33,6 +33,9 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { ROLES } from "../auth/role";
 
+const CUSTOMER_BOOKING_IDENTITY_KEY = "customer_booking_identity";
+const CUSTOMER_BOOKING_IDS_KEY_PREFIX = "customer_booking_ids_";
+
 function formatDate(value) {
     if (!value) return "-";
     const date = new Date(value);
@@ -88,6 +91,20 @@ function OperationsPage({ type }) {
     const [filterMonth, setFilterMonth] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(true);
+    const [customerBookingIds, setCustomerBookingIds] = useState([]);
+    const [customerBookingIdentity, setCustomerBookingIdentity] = useState(() => {
+        try {
+            const raw = localStorage.getItem(CUSTOMER_BOOKING_IDENTITY_KEY);
+            if (!raw) return { name: "", email: "" };
+            const parsed = JSON.parse(raw);
+            return {
+                name: (parsed?.name || "").toLowerCase(),
+                email: (parsed?.email || "").toLowerCase(),
+            };
+        } catch {
+            return { name: "", email: "" };
+        }
+    });
 
     const meta = useMemo(() => {
         if (type === "payroll") return { title: "User & Payroll Management", subtitle: "Salary generation, deductions, EPF/Tax and monthly summaries.", icon: "bi-cash-stack", code: "Payroll Suite" };
@@ -108,6 +125,28 @@ function OperationsPage({ type }) {
         0;
     const lockCustomerReservationIdentity = type === "restaurant" && user?.role === ROLES.CUSTOMER;
     const isCustomerRoomView = type === "rooms" && user?.role === ROLES.CUSTOMER;
+    const customerBookingIdsStorageKey = `${CUSTOMER_BOOKING_IDS_KEY_PREFIX}${(user?.email || "").trim().toLowerCase()}`;
+
+    useEffect(() => {
+        if (!isCustomerRoomView || !(user?.email || "").trim()) {
+            setCustomerBookingIds([]);
+            return;
+        }
+
+        try {
+            const raw = localStorage.getItem(customerBookingIdsStorageKey);
+            if (!raw) {
+                setCustomerBookingIds([]);
+                return;
+            }
+
+            const parsed = JSON.parse(raw);
+            const normalizedIds = Array.isArray(parsed) ? parsed.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0) : [];
+            setCustomerBookingIds(normalizedIds);
+        } catch {
+            setCustomerBookingIds([]);
+        }
+    }, [isCustomerRoomView, user?.email, customerBookingIdsStorageKey]);
 
     const load = async () => {
         setLoading(true);
@@ -229,17 +268,37 @@ function OperationsPage({ type }) {
         e.preventDefault();
         setError("");
         try {
+            if (isCustomerRoomView && availabilityInfo && availabilityInfo.availableRooms === 0) {
+                setError("All rooms are booked");
+                return;
+            }
+
             const payload = {
                 ...bookingForm,
-                ...(isCustomerRoomView
-                    ? {
-                          customerName: user?.fullName || bookingForm.customerName,
-                          customerEmail: user?.email || bookingForm.customerEmail,
-                      }
-                    : {}),
+                customerName: (bookingForm.customerName || "").trim(),
+                customerEmail: (bookingForm.customerEmail || "").trim(),
             };
 
-            await createRoomBooking(payload);
+            if (isCustomerRoomView) {
+                const identity = {
+                    name: (payload.customerName || "").toLowerCase(),
+                    email: (payload.customerEmail || "").toLowerCase(),
+                };
+                setCustomerBookingIdentity(identity);
+                localStorage.setItem(CUSTOMER_BOOKING_IDENTITY_KEY, JSON.stringify(identity));
+            }
+
+            const created = await createRoomBooking(payload);
+
+            if (isCustomerRoomView && created?.data?.id) {
+                const createdId = Number(created.data.id);
+                if (Number.isInteger(createdId) && createdId > 0) {
+                    const nextIds = Array.from(new Set([...customerBookingIds, createdId]));
+                    setCustomerBookingIds(nextIds);
+                    localStorage.setItem(customerBookingIdsStorageKey, JSON.stringify(nextIds));
+                }
+            }
+
             setBookingForm(empty.roomBooking);
             setPriceBreakdown(null);
             setRoomPopularity(null);
@@ -253,6 +312,8 @@ function OperationsPage({ type }) {
     useEffect(() => {
         if (type === "rooms" && bookingForm.checkInDate && bookingForm.checkOutDate) {
             const room = rows.find((r) => r._kind === "room" && r.roomNumber === bookingForm.roomNumber);
+
+            // Dynamic price is fetched for selected room and dates
             if (room) {
                 calculateRoomPrice(room.id, bookingForm.checkInDate, bookingForm.checkOutDate)
                     .then((res) => setPriceBreakdown(res.data))
@@ -263,6 +324,7 @@ function OperationsPage({ type }) {
                     .catch(() => setRoomPopularity(null));
             }
 
+            // Live availability is fetched when dates change
             roomAvailability(bookingForm.checkInDate, bookingForm.checkOutDate)
                 .then((res) => {
                     setAvailabilityInfo(res.data);
@@ -445,10 +507,12 @@ function OperationsPage({ type }) {
                     Room Description
                     <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
                 </label>
+
                 <label>
                     Capacity
                     <input type="number" min="1" value={form.capacity ?? ""} onChange={(e) => setForm({ ...form, capacity: e.target.value === "" ? null : Number(e.target.value) })} />
                 </label>
+
                 <label>
                     Normal Price
                     <input type="number" min="0" value={form.pricePerNight ?? ""} onChange={(e) => setForm({ ...form, pricePerNight: e.target.value === "" ? null : Number(e.target.value) })} />
@@ -503,17 +567,42 @@ function OperationsPage({ type }) {
         return rows
             .filter((r) => r._kind === "booking")
             .filter((b) => {
-                const bookingEmail = (b.customerEmail || "").toLowerCase();
-                const bookingName = (b.customerName || "").toLowerCase();
-                const userEmail = (user?.email || "").toLowerCase();
-                const userName = (user?.fullName || "").toLowerCase();
-                return bookingEmail === userEmail || (bookingEmail === "" && bookingName === userName);
+                const bookingEmail = (b.customerEmail || "").trim().toLowerCase();
+                const bookingName = (b.customerName || "").trim().toLowerCase();
+                const userEmail = (user?.email || "").trim().toLowerCase();
+                const userName = (user?.fullName || "").trim().toLowerCase();
+
+                const matchesLoggedInIdentity = (userEmail && bookingEmail === userEmail) || (userName && bookingName === userName);
+                const matchesEnteredIdentity =
+                    (customerBookingIdentity.email && bookingEmail === customerBookingIdentity.email) || (customerBookingIdentity.name && bookingName === customerBookingIdentity.name);
+
+                const bookingId = Number(b.id);
+                const matchesCreatedBooking = Number.isInteger(bookingId) && customerBookingIds.includes(bookingId);
+
+                return matchesLoggedInIdentity || matchesEnteredIdentity || matchesCreatedBooking;
             })
             .map((b) => ({
                 ...b,
                 roomDetails: roomByNumber.get(b.roomNumber),
             }));
-    }, [rows, isCustomerRoomView, user?.email]);
+    }, [rows, isCustomerRoomView, user?.email, user?.fullName, customerBookingIdentity, customerBookingIds]);
+
+    const totalRoomInventory = useMemo(() => rows.filter((r) => r._kind === "room").length, [rows]);
+    const selectedRoomNumber = (bookingForm.roomNumber || "").trim().toLowerCase();
+    const activeRoomBookingCount = useMemo(
+        () =>
+            rows
+                .filter((r) => r._kind === "booking")
+                .filter((b) => {
+                    const status = (b.status || "").toUpperCase();
+                    const bookingRoomNumber = (b.roomNumber || "").trim().toLowerCase();
+                    const isActiveStatus = !status || (status !== "CANCELLED" && status !== "CHECKED_OUT");
+                    return isActiveStatus && (!selectedRoomNumber || bookingRoomNumber === selectedRoomNumber);
+                }).length,
+        [rows, selectedRoomNumber],
+    );
+    const roomsRemaining = Math.max(totalRoomInventory - activeRoomBookingCount, 0);
+    const customerBookingBlocked = isCustomerRoomView && selectedRoomNumber && roomsRemaining === 0;
 
     return (
         <div className="module-page dashboard-luxe operations-luxe">
@@ -617,9 +706,14 @@ function OperationsPage({ type }) {
                                     <div style={{ fontWeight: 600 }}>Select check-in and check-out dates to see live availability.</div>
                                 ) : availabilityInfo ? (
                                     <>
-                                        <div style={{ fontWeight: 600, marginBottom: "6px" }}>Available Rooms: {availabilityInfo.availableRooms}</div>
-                                        {availabilityInfo.availableRooms === 1 && <div style={{ color: "#dc2626", fontWeight: 600 }}>Only 1 room left</div>}
-                                        {availabilityInfo.availableRooms === 2 && <div style={{ color: "#ffd27f", fontWeight: 600 }}>Only 2 rooms left</div>}
+                                        <div style={{ fontWeight: 600, marginBottom: "6px" }}>Available Rooms: {roomsRemaining}</div>
+                                        {roomsRemaining === 0 ? (
+                                            <div style={{ color: "#dc2626", fontWeight: 600 }}>All rooms are booked</div>
+                                        ) : (
+                                            <div style={{ color: roomsRemaining <= 2 ? "#ffd27f" : "#22c55e", fontWeight: 600 }}>
+                                                {roomsRemaining} {roomsRemaining === 1 ? "room" : "rooms"} remaining
+                                            </div>
+                                        )}
                                     </>
                                 ) : availabilityFailed ? (
                                     <div style={{ color: "#ffcc66", fontWeight: 600 }}>Live availability is temporarily unavailable.</div>
@@ -673,7 +767,7 @@ function OperationsPage({ type }) {
                                 </div>
                             )}
 
-                            <button type="submit" className="primary-action">
+                            <button type="submit" className="primary-action" disabled={customerBookingBlocked}>
                                 Create Booking
                             </button>
                         </form>
@@ -693,6 +787,8 @@ function OperationsPage({ type }) {
                     <table className="data-table">
                         <thead>
                             <tr>
+                                <th>Customer Name</th>
+                                <th>Customer Email</th>
                                 <th>Room Number</th>
                                 <th>Room Type</th>
                                 <th>Description</th>
@@ -706,13 +802,15 @@ function OperationsPage({ type }) {
                         <tbody>
                             {customerBookedRooms.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} style={{ textAlign: "center", padding: "20px" }}>
+                                    <td colSpan={10} style={{ textAlign: "center", padding: "20px" }}>
                                         No room bookings yet.
                                     </td>
                                 </tr>
                             ) : (
                                 customerBookedRooms.map((row) => (
                                     <tr key={`customer-booking-${row.id}`}>
+                                        <td>{row.customerName || "-"}</td>
+                                        <td>{row.customerEmail || "-"}</td>
                                         <td>{row.roomNumber || "-"}</td>
                                         <td>{row.roomDetails?.roomType || "-"}</td>
                                         <td>{row.roomDetails?.description || "-"}</td>

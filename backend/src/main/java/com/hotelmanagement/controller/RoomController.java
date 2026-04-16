@@ -75,6 +75,7 @@ public class RoomController {
         roomRepository.deleteById(id);
     }
 
+    //Room availability date validation
     @GetMapping("/availability")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'CUSTOMER')")
     public Map<String, Object> availability(@RequestParam LocalDate checkIn, @RequestParam LocalDate checkOut) {
