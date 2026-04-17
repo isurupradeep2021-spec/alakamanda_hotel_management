@@ -819,15 +819,17 @@ textarea:focus {
     font-size: 13px;
     font-weight: 600;
     letter-spacing: 0.01em;
-    font-family: inherit;
+    font-family: var(--font-sans);
 }
 
 .room-availability.ok {
     color: #02d85f;
+    font-size: medium;
 }
 
 .room-availability.low {
     color: #dc2626;
+    font-size: medium;
 }
 
 .room-cta {

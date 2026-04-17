@@ -427,7 +427,13 @@ function OperationsPage({ type }) {
         e.preventDefault();
         setPageError("");
         try {
-            await createRoomBooking(bookingForm);
+            const payload = {
+                ...bookingForm,
+                customerName: (bookingForm.customerName || "").trim(),
+                customerEmail: (bookingForm.customerEmail || "").trim(),
+            };
+
+            await createRoomBooking(payload);
             setBookingForm(empty.roomBooking);
             await load();
         } catch (err) {
@@ -777,19 +783,26 @@ function OperationsPage({ type }) {
             .filter((row) => row._kind === "room")
             .reduce((acc, room) => {
                 if (room.roomNumber) {
-                    acc[room.roomNumber] = room.roomType || "-";
+                    acc[String(room.roomNumber).trim().toLowerCase()] = room.roomType || "-";
                 }
                 return acc;
             }, {});
 
         return rows
             .filter((row) => row._kind === "booking")
-            .filter((row) => (row.customerEmail || "").toLowerCase() === (user?.email || "").toLowerCase())
+            .sort((a, b) => Number(b.id || 0) - Number(a.id || 0))
             .map((row) => ({
                 ...row,
-                roomType: roomTypeByNumber[row.roomNumber] || row.roomType || "-",
+                roomType:
+                    roomTypeByNumber[
+                        String(row.roomNumber || "")
+                            .trim()
+                            .toLowerCase()
+                    ] ||
+                    row.roomType ||
+                    "-",
             }));
-    }, [rows, isCustomerRoomPage, type, user?.email]);
+    }, [rows, isCustomerRoomPage, type]);
 
     const renderRecordsTable = () => {
         if (loading) {
