@@ -776,6 +776,29 @@ function OperationsPage({ type }) {
         return res;
     }, [rows, type, searchQuery, filterMonth, isCustomerEventBookingPage, customerEventRows]);
 
+    const customerRoomBookings = useMemo(() => {
+        if (!isCustomerRoomPage || type !== "rooms") {
+            return [];
+        }
+
+        const roomTypeByNumber = rows
+            .filter((row) => row._kind === "room")
+            .reduce((acc, room) => {
+                if (room.roomNumber) {
+                    acc[room.roomNumber] = room.roomType || "-";
+                }
+                return acc;
+            }, {});
+
+        return rows
+            .filter((row) => row._kind === "booking")
+            .filter((row) => (row.customerEmail || "").toLowerCase() === (user?.email || "").toLowerCase())
+            .map((row) => ({
+                ...row,
+                roomType: roomTypeByNumber[row.roomNumber] || row.roomType || "-",
+            }));
+    }, [rows, isCustomerRoomPage, type, user?.email]);
+
     const renderRecordsTable = () => {
         if (loading) {
             return <p className="loading-line">Loading module data...</p>;
@@ -785,7 +808,7 @@ function OperationsPage({ type }) {
             <div className="table-wrap ops-table-wrap">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "16px" }}>
                     <h3 className="ops-table-title" style={{ margin: 0 }}>
-                        Latest Records
+                        {isCustomerRoomPage && type === "rooms" ? "My Booked Rooms" : "Latest Records"}
                     </h3>
                     {type === "payroll" && (
                         <div style={{ display: "flex", gap: "12px" }}>
@@ -945,35 +968,63 @@ function OperationsPage({ type }) {
                     ) : (
                         <>
                             <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Name/Title</th>
-                                    <th>Status</th>
-                                    <th>Amount</th>
-                                    {canManageRoomRecords && <th>Action</th>}
-                                </tr>
+                                {isCustomerRoomPage ? (
+                                    <tr>
+                                        <th>Customer Name</th>
+                                        <th>Customer Email</th>
+                                        <th>Room Number</th>
+                                        <th>Room Type</th>
+                                        <th>Check-in</th>
+                                        <th>Check-out</th>
+                                        <th>Guests</th>
+                                        <th>Status</th>
+                                        <th>Total</th>
+                                    </tr>
+                                ) : (
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Name/Title</th>
+                                        <th>Status</th>
+                                        <th>Amount</th>
+                                        {canManageRoomRecords && <th>Action</th>}
+                                    </tr>
+                                )}
                             </thead>
                             <tbody>
-                                {currentRows.map((row) => (
-                                    <tr key={`${row._kind || type}-${row.id}`}>
-                                        <td>{row.id}</td>
-                                        <td>{row.employeeName || row.customerName || row.roomNumber || row.eventType || row.menuItem}</td>
-                                        <td>{row.status || row._kind || "-"}</td>
-                                        <td>{row.netSalary || row.totalAmount || row.totalCost || row.pricePerNight || "-"}</td>
-                                        {canManageRoomRecords && (
-                                            <td>
-                                                <div className="table-actions">
-                                                    <button type="button" className="secondary-btn" onClick={() => handleEdit(row)}>
-                                                        Edit
-                                                    </button>
-                                                    <button type="button" className="danger-btn" onClick={() => handleDelete(row)}>
-                                                        Delete
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        )}
-                                    </tr>
-                                ))}
+                                {(isCustomerRoomPage ? customerRoomBookings : currentRows).map((row) =>
+                                    isCustomerRoomPage ? (
+                                        <tr key={`customer-booking-${row.id}`}>
+                                            <td>{row.customerName || "-"}</td>
+                                            <td>{row.customerEmail || "-"}</td>
+                                            <td>{row.roomNumber || "-"}</td>
+                                            <td>{row.roomType || "-"}</td>
+                                            <td>{row.checkInDate || "-"}</td>
+                                            <td>{row.checkOutDate || "-"}</td>
+                                            <td>{row.guestCount ?? "-"}</td>
+                                            <td>{row.status || "-"}</td>
+                                            <td>{formatCurrency(row.totalCost)}</td>
+                                        </tr>
+                                    ) : (
+                                        <tr key={`${row._kind || type}-${row.id}`}>
+                                            <td>{row.id}</td>
+                                            <td>{row.employeeName || row.customerName || row.roomNumber || row.eventType || row.menuItem}</td>
+                                            <td>{row.status || row._kind || "-"}</td>
+                                            <td>{row.netSalary || row.totalAmount || row.totalCost || row.pricePerNight || "-"}</td>
+                                            {canManageRoomRecords && (
+                                                <td>
+                                                    <div className="table-actions">
+                                                        <button type="button" className="secondary-btn" onClick={() => handleEdit(row)}>
+                                                            Edit
+                                                        </button>
+                                                        <button type="button" className="danger-btn" onClick={() => handleDelete(row)}>
+                                                            Delete
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            )}
+                                        </tr>
+                                    ),
+                                )}
                             </tbody>
                         </>
                     )}
