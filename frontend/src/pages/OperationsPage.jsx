@@ -28,7 +28,6 @@ import {
 } from "../api/service";
 import { useAuth } from "../context/AuthContext";
 import { ROLES } from "../auth/role";
-import { eventHalls } from "../data/eventHalls";
 
 function formatDate(value) {
     if (!value) return "-";
@@ -165,6 +164,9 @@ function OperationsPage({ type }) {
 
     const isEventBookingPage = type === "events" && ["/event-booking", "/book-event"].includes(location.pathname);
     const canManageEventRecords = type !== "events" || !isEventBookingPage;
+    const isCustomerRoomPage = type === "rooms" && user?.role === ROLES.CUSTOMER;
+    const canManageRoomRecords = type !== "rooms" || !isCustomerRoomPage;
+    const canViewRoomAnalytics = type !== "rooms" || [ROLES.ADMIN, ROLES.MANAGER, ROLES.RECEPTIONIST].includes(user?.role);
     const isEditingRecord = Boolean(editId) && (type !== "events" || canManageEventRecords);
     const isCustomerEventBookingPage = isEventBookingPage && user?.role === ROLES.CUSTOMER;
     const eventStatusOptions = isCustomerEventBookingPage ? ["INQUIRY"] : isEventBookingPage ? ["INQUIRY", "CANCELLED"] : ["INQUIRY", "CONFIRMED", "COMPLETED", "CANCELLED"];
@@ -241,9 +243,14 @@ function OperationsPage({ type }) {
                     setAnalytics({});
                 }
             } else {
-                const [list, bookings, summary] = await Promise.all([getRooms(), getRoomBookings(), roomBookingAnalytics()]);
+                const [list, bookings] = await Promise.all([getRooms(), getRoomBookings()]);
                 setRows((list.data || []).map((x) => ({ ...x, _kind: "room" })).concat((bookings.data || []).map((x) => ({ ...x, _kind: "booking" }))));
-                setAnalytics(summary.data || {});
+                if (canViewRoomAnalytics) {
+                    const summary = await roomBookingAnalytics();
+                    setAnalytics(summary.data || {});
+                } else {
+                    setAnalytics({});
+                }
             }
         } catch (e) {
             setPageError(e.response?.data?.message || e.message || "Failed to load data");
@@ -270,10 +277,19 @@ function OperationsPage({ type }) {
             nextForm.customerEmail = user.email || "";
             nextForm.customerMobile = user.phone || "";
         }
+        if (type === "rooms" && user?.role === ROLES.CUSTOMER) {
+            setBookingForm({
+                ...empty.roomBooking,
+                customerName: user.fullName || "",
+                customerEmail: user.email || "",
+            });
+        } else {
+            setBookingForm(empty.roomBooking);
+        }
         setForm(nextForm);
         load();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [type, user?.role, user?.fullName, user?.email, user?.phone, canManageEventRecords]);
+    }, [type, user?.role, user?.fullName, user?.email, user?.phone, canManageEventRecords, canViewRoomAnalytics]);
 
     const handleSelectEventHall = (hall) => {
         setEditId(null);
@@ -297,6 +313,9 @@ function OperationsPage({ type }) {
         setPageError("");
         setFormError("");
         try {
+            if (type === "rooms" && !canManageRoomRecords) {
+                throw new Error("Room record creation is not allowed for customer accounts");
+            }
             let finalForm = { ...form };
             if (type === "payroll") {
                 const computedNetSalary =
@@ -383,6 +402,9 @@ function OperationsPage({ type }) {
         if (type === "events" && !canManageEventRecords) {
             return;
         }
+        if (type === "rooms" && !canManageRoomRecords) {
+            return;
+        }
         setEditId(row.id);
         setFormError("");
         const { id, _kind, createdAt, updatedAt, ...rest } = row;
@@ -423,6 +445,9 @@ function OperationsPage({ type }) {
 
     const handleDelete = async (row) => {
         if (type === "events" && !canManageEventRecords) {
+            return;
+        }
+        if (type === "rooms" && !canManageRoomRecords) {
             return;
         }
         try {
@@ -925,7 +950,7 @@ function OperationsPage({ type }) {
                                     <th>Name/Title</th>
                                     <th>Status</th>
                                     <th>Amount</th>
-                                    <th>Action</th>
+                                    {canManageRoomRecords && <th>Action</th>}
                                 </tr>
                             </thead>
                             <tbody>
@@ -935,16 +960,18 @@ function OperationsPage({ type }) {
                                         <td>{row.employeeName || row.customerName || row.roomNumber || row.eventType || row.menuItem}</td>
                                         <td>{row.status || row._kind || "-"}</td>
                                         <td>{row.netSalary || row.totalAmount || row.totalCost || row.pricePerNight || "-"}</td>
-                                        <td>
-                                            <div className="table-actions">
-                                                <button type="button" className="secondary-btn" onClick={() => handleEdit(row)}>
-                                                    Edit
-                                                </button>
-                                                <button type="button" className="danger-btn" onClick={() => handleDelete(row)}>
-                                                    Delete
-                                                </button>
-                                            </div>
-                                        </td>
+                                        {canManageRoomRecords && (
+                                            <td>
+                                                <div className="table-actions">
+                                                    <button type="button" className="secondary-btn" onClick={() => handleEdit(row)}>
+                                                        Edit
+                                                    </button>
+                                                    <button type="button" className="danger-btn" onClick={() => handleDelete(row)}>
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        )}
                                     </tr>
                                 ))}
                             </tbody>
@@ -1101,40 +1128,42 @@ function OperationsPage({ type }) {
             )}
 
             <div className="ops-grid">
-                <section className="ops-panel" ref={type === "events" ? bookingFormRef : null}>
-                    <h3>{type === "events" ? (isEditingRecord ? "Edit Event Booking" : "Create Event Booking") : editId ? "Edit Record" : "Create Record"}</h3>
-                    <form className="crud-form premium-form" onSubmit={handleCreateOrUpdate}>
-                        {renderFields()}
-                        {type === "events" && formError && <div className="inline-error">{formError}</div>}
-                        <div className="form-actions">
-                            <button type="submit" className="primary-action">
-                                {isEditingRecord ? "Update" : "Create"}
-                            </button>
-                            {(editId || type === "events") && (
-                                <button
-                                    type="button"
-                                    className="secondary-action"
-                                    onClick={() => {
-                                        setEditId(null);
-                                        const resetForm = { ...(empty[type] || {}) };
-                                        if (type === "restaurant" && user?.role === ROLES.CUSTOMER) {
-                                            resetForm.customerName = user.fullName || "";
-                                            resetForm.contact = user.email || "";
-                                        }
-                                        if (type === "events" && user?.role === ROLES.CUSTOMER) {
-                                            resetForm.customerName = user.fullName || "";
-                                            resetForm.customerEmail = user.email || "";
-                                            resetForm.customerMobile = user.phone || "";
-                                        }
-                                        setForm(resetForm);
-                                    }}
-                                >
-                                    {isEditingRecord ? "Cancel" : "Clear Form"}
+                {canManageRoomRecords && (
+                    <section className="ops-panel" ref={type === "events" ? bookingFormRef : null}>
+                        <h3>{type === "events" ? (isEditingRecord ? "Edit Event Booking" : "Create Event Booking") : editId ? "Edit Record" : "Create Record"}</h3>
+                        <form className="crud-form premium-form" onSubmit={handleCreateOrUpdate}>
+                            {renderFields()}
+                            {type === "events" && formError && <div className="inline-error">{formError}</div>}
+                            <div className="form-actions">
+                                <button type="submit" className="primary-action">
+                                    {isEditingRecord ? "Update" : "Create"}
                                 </button>
-                            )}
-                        </div>
-                    </form>
-                </section>
+                                {(editId || type === "events") && (
+                                    <button
+                                        type="button"
+                                        className="secondary-action"
+                                        onClick={() => {
+                                            setEditId(null);
+                                            const resetForm = { ...(empty[type] || {}) };
+                                            if (type === "restaurant" && user?.role === ROLES.CUSTOMER) {
+                                                resetForm.customerName = user.fullName || "";
+                                                resetForm.contact = user.email || "";
+                                            }
+                                            if (type === "events" && user?.role === ROLES.CUSTOMER) {
+                                                resetForm.customerName = user.fullName || "";
+                                                resetForm.customerEmail = user.email || "";
+                                                resetForm.customerMobile = user.phone || "";
+                                            }
+                                            setForm(resetForm);
+                                        }}
+                                    >
+                                        {isEditingRecord ? "Cancel" : "Clear Form"}
+                                    </button>
+                                )}
+                            </div>
+                        </form>
+                    </section>
+                )}
 
                 {type === "rooms" && (
                     <section className="ops-panel">
@@ -1142,7 +1171,13 @@ function OperationsPage({ type }) {
                         <form className="crud-form premium-form" onSubmit={handleCreateRoomBooking}>
                             <label>
                                 Booking Customer
-                                <input placeholder="Ex: John Doe" value={bookingForm.customerName} onChange={(e) => setBookingForm({ ...bookingForm, customerName: e.target.value })} required />
+                                <input
+                                    placeholder="Ex: John Doe"
+                                    value={bookingForm.customerName}
+                                    onChange={(e) => setBookingForm({ ...bookingForm, customerName: e.target.value })}
+                                    readOnly={isCustomerRoomPage}
+                                    required
+                                />
                             </label>
                             <label>
                                 Customer Email
@@ -1150,6 +1185,7 @@ function OperationsPage({ type }) {
                                     placeholder="Ex: john.doe@email.com"
                                     value={bookingForm.customerEmail}
                                     onChange={(e) => setBookingForm({ ...bookingForm, customerEmail: e.target.value })}
+                                    readOnly={isCustomerRoomPage}
                                     required
                                 />
                             </label>
