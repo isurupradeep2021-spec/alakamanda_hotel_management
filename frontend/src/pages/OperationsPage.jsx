@@ -277,15 +277,7 @@ function OperationsPage({ type }) {
             nextForm.customerEmail = user.email || "";
             nextForm.customerMobile = user.phone || "";
         }
-        if (type === "rooms" && user?.role === ROLES.CUSTOMER) {
-            setBookingForm({
-                ...empty.roomBooking,
-                customerName: user.fullName || "",
-                customerEmail: user.email || "",
-            });
-        } else {
-            setBookingForm(empty.roomBooking);
-        }
+        setBookingForm(empty.roomBooking);
         setForm(nextForm);
         load();
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1222,21 +1214,14 @@ function OperationsPage({ type }) {
                         <form className="crud-form premium-form" onSubmit={handleCreateRoomBooking}>
                             <label>
                                 Booking Customer
-                                <input
-                                    placeholder="Ex: John Doe"
-                                    value={bookingForm.customerName}
-                                    onChange={(e) => setBookingForm({ ...bookingForm, customerName: e.target.value })}
-                                    readOnly={isCustomerRoomPage}
-                                    required
-                                />
+                                <input placeholder="Ex: Customer User" value={bookingForm.customerName} onChange={(e) => setBookingForm({ ...bookingForm, customerName: e.target.value })} required />
                             </label>
                             <label>
                                 Customer Email
                                 <input
-                                    placeholder="Ex: john.doe@email.com"
+                                    placeholder="Ex: customer@hotel.com"
                                     value={bookingForm.customerEmail}
                                     onChange={(e) => setBookingForm({ ...bookingForm, customerEmail: e.target.value })}
-                                    readOnly={isCustomerRoomPage}
                                     required
                                 />
                             </label>

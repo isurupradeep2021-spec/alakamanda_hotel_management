@@ -1,7 +1,7 @@
 import http from "./http";
 
-export const loginApi = (payload) => http.post("/auth/login", payload);
-export const registerApi = (payload) => http.post("/auth/register", payload);
+export const loginApi = (payload) => http.post("/auth/login", payload, { skipAuth: true });
+export const registerApi = (payload) => http.post("/auth/register", payload, { skipAuth: true });
 
 export const getSummary = () => http.get("/dashboard/summary");
 export const getRoomBookingInsights = () => http.get("/dashboard/room-booking-insights");

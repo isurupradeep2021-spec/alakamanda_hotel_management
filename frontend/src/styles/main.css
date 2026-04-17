@@ -814,6 +814,22 @@ textarea:focus {
     color: var(--gold);
 }
 
+.room-availability {
+    margin: 10px 0 0;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    font-family: inherit;
+}
+
+.room-availability.ok {
+    color: #02d85f;
+}
+
+.room-availability.low {
+    color: #dc2626;
+}
+
 .room-cta {
     display: block;
     text-align: center;

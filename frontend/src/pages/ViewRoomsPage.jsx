@@ -103,7 +103,7 @@ function ViewRoomsPage() {
                                     </span>
                                 </div>
 
-                                <p style={{ margin: "10px 0 0", fontWeight: 600, color: roomsRemaining <= 1 ? "#dc2626" : "#1f7a46" }}>
+                                <p className={`room-availability ${roomsRemaining <= 1 ? "low" : "ok"}`}>
                                     {roomsRemaining === 0 ? "All rooms reserved" : `${roomsRemaining} ${roomsRemaining === 1 ? "room" : "rooms"} remaining`}
                                 </p>
 
