@@ -7,6 +7,8 @@ import ViewRoomsPage from './pages/ViewRoomsPage';
 import ViewMenuPage from './pages/ViewMenuPage';
 import RestaurantDetailsPage from './pages/RestaurantDetailsPage';
 import PayrollCenterPage from './pages/PayrollCenterPage';
+import PayrollSuitePage from './pages/PayrollSuitePage';
+import PayslipPage from './pages/PayslipPage';
 import RegisterPage from './pages/RegisterPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './layouts/DashboardLayout';
@@ -50,6 +52,8 @@ function App() {
       >
         <Route path="/dashboard" element={withRoleGuard('/dashboard', <DashboardPage />)} />
         <Route path="/payroll-center" element={withRoleGuard('/payroll-center', <PayrollCenterPage />)} />
+        <Route path="/payroll-suite" element={withRoleGuard('/payroll-suite', <PayrollSuitePage />)} />
+        <Route path="/payslip" element={withRoleGuard('/payslip', <PayslipPage />)} />
 
         <Route path="/users" element={withRoleGuard('/users', <UserManagementPage />)} />
         <Route path="/rooms" element={withRoleGuard('/rooms', <OperationsPage type="rooms" />)} />

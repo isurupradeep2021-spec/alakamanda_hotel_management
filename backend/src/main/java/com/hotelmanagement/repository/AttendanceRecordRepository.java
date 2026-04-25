@@ -12,4 +12,8 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
     Optional<AttendanceRecord> findByUserAndAttendanceDate(User user, LocalDate date);
 
     List<AttendanceRecord> findByUserAndAttendanceDateBetween(User user, LocalDate start, LocalDate end);
+
+    List<AttendanceRecord> findByUserAndAttendanceDateBetweenAndCheckInTimeIsNotNullAndCheckOutTimeIsNull(User user, LocalDate start, LocalDate end);
+
+    List<AttendanceRecord> findByAttendanceDateBetween(LocalDate start, LocalDate end);
 }

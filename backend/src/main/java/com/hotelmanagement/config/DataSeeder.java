@@ -23,6 +23,7 @@ public class DataSeeder implements CommandLineRunner {
     private final EventBookingRepository eventBookingRepository;
     private final RoomBookingRepository roomBookingRepository;
     private final PayrollRecordRepository payrollRecordRepository;
+    private final PayrollProfileRepository payrollProfileRepository;
     private final PasswordEncoder passwordEncoder;
     private final JdbcTemplate jdbcTemplate;
 
@@ -32,11 +33,22 @@ public class DataSeeder implements CommandLineRunner {
         seedUsers();
         seedRooms();
         seedBookings();
+        seedPayrollProfiles();
         seedPayroll();
     }
 
     private void ensureSchemaCompatibility() {
-        jdbcTemplate.execute("ALTER TABLE users MODIFY COLUMN role VARCHAR(50) NOT NULL");
+        try {
+            // SQL Server syntax
+            jdbcTemplate.execute("ALTER TABLE users ALTER COLUMN role VARCHAR(50) NOT NULL");
+        } catch (Exception sqlServerEx) {
+            try {
+                // MySQL syntax
+                jdbcTemplate.execute("ALTER TABLE users MODIFY COLUMN role VARCHAR(50) NOT NULL");
+            } catch (Exception ignored) {
+                // Column is already compatible or database uses a different dialect.
+            }
+        }
     }
 
     private void seedUsers() {
@@ -160,13 +172,18 @@ public class DataSeeder implements CommandLineRunner {
         if (eventBookingRepository.count() == 0) {
             eventBookingRepository.save(EventBooking.builder()
                     .customerName("Customer User")
+                    .customerEmail("customer@hotel.com")
+                    .customerMobile("0770000006")
                     .eventType("Wedding")
-                    .hallName("Royal Hall")
+                    .hallName("Grand Ballroom")
                     .packageName("Premium")
                     .eventDateTime(LocalDateTime.now().plusDays(7))
+                    .endDateTime(LocalDateTime.now().plusDays(7).plusHours(5))
+                    .durationHours(5.0)
                     .attendees(120)
-                    .pricePerGuest(new BigDecimal("30.00"))
-                    .totalCost(new BigDecimal("3600.00"))
+                    .pricePerGuest(new BigDecimal("25000.00"))
+                    .totalPrice(new BigDecimal("135000.00"))
+                    .totalCost(new BigDecimal("135000.00"))
                     .notes("Need custom flower setup")
                     .status("INQUIRY")
                     .build());
@@ -224,5 +241,40 @@ public class DataSeeder implements CommandLineRunner {
                 .payrollMonth(YearMonth.now().toString())
                 .notes("Seed payroll")
                 .build());
+    }
+
+    private void seedPayrollProfiles() {
+        upsertPayrollProfile("admin@hotel.com", ContractType.ADMIN, PayCycle.MONTHLY);
+        upsertPayrollProfile("manager@hotel.com", ContractType.MANAGER, PayCycle.MONTHLY);
+        upsertPayrollProfile("staff@hotel.com", ContractType.STAFF_MEMBER, PayCycle.MONTHLY);
+    }
+
+    private void upsertPayrollProfile(String email, ContractType contractType, PayCycle payCycle) {
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null) {
+            return;
+        }
+        PayrollProfile profile = payrollProfileRepository.findByUser(user).orElseGet(PayrollProfile::new);
+        profile.setUser(user);
+        profile.setEmployeeCode(user.getEmployeeId());
+        profile.setEmployeeName(user.getFullName());
+        profile.setContractType(contractType);
+        profile.setDepartment(user.getEmploymentRole() == null ? "General" : user.getEmploymentRole());
+        profile.setPayCycle(payCycle);
+        profile.setBaseSalary(user.getBasicSalary() == null ? BigDecimal.ZERO : user.getBasicSalary());
+        if (profile.getTaxRate() == null) {
+            profile.setTaxRate(contractType == ContractType.MANAGER ? new BigDecimal("0.18")
+                    : contractType == ContractType.ADMIN ? new BigDecimal("0.12")
+                    : new BigDecimal("0.08"));
+        }
+        if (profile.getInsuranceRate() == null) {
+            profile.setInsuranceRate(new BigDecimal("0.03"));
+        }
+        if (profile.getOvertimeMultiplier() == null) {
+            profile.setOvertimeMultiplier(new BigDecimal("1.5"));
+        }
+        profile.setActive(true);
+        profile.setArchived(false);
+        payrollProfileRepository.save(profile);
     }
 }

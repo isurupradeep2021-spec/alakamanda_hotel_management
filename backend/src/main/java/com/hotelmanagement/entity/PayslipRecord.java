@@ -29,7 +29,7 @@ public class PayslipRecord {
     private String fileName;
 
     @Lob
-    @Column(columnDefinition = "LONGBLOB")
+    @Column(nullable = false)
     private byte[] pdfData;
 
     @Builder.Default

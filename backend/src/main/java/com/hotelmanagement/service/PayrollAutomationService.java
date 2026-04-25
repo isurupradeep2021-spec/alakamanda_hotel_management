@@ -1,5 +1,6 @@
 package com.hotelmanagement.service;
 
+import com.hotelmanagement.dto.AttendanceAdjustmentRequest;
 import com.hotelmanagement.entity.*;
 import com.hotelmanagement.repository.*;
 import com.lowagie.text.Document;
@@ -16,6 +17,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.WeekFields;
 import java.time.YearMonth;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -30,6 +32,7 @@ public class PayrollAutomationService {
     private final OvertimeRecordRepository overtimeRecordRepository;
     private final PayrollRecordRepository payrollRecordRepository;
     private final PayslipRecordRepository payslipRecordRepository;
+    private final PayrollProfileService payrollProfileService;
     private final RoomRepository roomRepository;
     private final RoomBookingRepository roomBookingRepository;
     private final EventBookingRepository eventBookingRepository;
@@ -40,6 +43,18 @@ public class PayrollAutomationService {
 
     @Value("${app.payroll.max-paid-leaves:5}")
     private int maxPaidLeaves;
+
+    @Value("${app.payroll.epf-rate:0.08}")
+    private BigDecimal epfRate;
+
+    @Value("${app.payroll.tax-rate:0.05}")
+    private BigDecimal taxRate;
+
+    @Value("${app.payroll.tax-threshold:3000}")
+    private BigDecimal taxThreshold;
+
+    @Value("${app.payroll.max-overtime-hours-per-week:20}")
+    private double legalMaxWeeklyOvertimeHours;
 
     public User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -70,6 +85,23 @@ public class PayrollAutomationService {
 
         attendance.setCheckOutTime(LocalDateTime.now());
         attendance.updateHours();
+
+        int week = today.get(WeekFields.ISO.weekOfWeekBasedYear());
+        int year = today.getYear();
+        LocalDate weekStart = today.minusDays(today.getDayOfWeek().getValue() - 1L);
+        LocalDate weekEnd = weekStart.plusDays(6);
+        double weekOvertime = attendanceRecordRepository.findByUserAndAttendanceDateBetween(user, weekStart, weekEnd).stream()
+                .filter(a -> a.getAttendanceDate() != null
+                        && a.getAttendanceDate().get(WeekFields.ISO.weekOfWeekBasedYear()) == week
+                        && a.getAttendanceDate().getYear() == year
+                        && !a.getAttendanceDate().equals(today))
+                .mapToDouble(a -> a.getOvertimeHours() == null ? 0.0 : a.getOvertimeHours())
+                .sum();
+        weekOvertime += attendance.getOvertimeHours() == null ? 0.0 : attendance.getOvertimeHours();
+        if (weekOvertime > legalMaxWeeklyOvertimeHours) {
+            throw new IllegalArgumentException("Overtime cannot exceed legal maximum hours per week");
+        }
+
         attendance = attendanceRecordRepository.save(attendance);
         AttendanceRecord savedAttendance = attendance;
 
@@ -95,6 +127,50 @@ public class PayrollAutomationService {
         return savedAttendance;
     }
 
+    public AttendanceRecord adjustAttendance(Long attendanceId, AttendanceAdjustmentRequest request) {
+        AttendanceRecord attendance = attendanceRecordRepository.findById(attendanceId)
+                .orElseThrow(() -> new IllegalArgumentException("Attendance record not found"));
+
+        if (request.getCheckInTime() != null) {
+            attendance.setCheckInTime(request.getCheckInTime());
+        }
+        if (request.getCheckOutTime() != null) {
+            attendance.setCheckOutTime(request.getCheckOutTime());
+        }
+        if (request.getLate() != null) {
+            attendance.setLate(request.getLate());
+        }
+        if (request.getEarlyDeparture() != null) {
+            attendance.setEarlyDeparture(request.getEarlyDeparture());
+        }
+        if (request.getShiftType() != null) {
+            attendance.setShiftType(request.getShiftType());
+        }
+        if (attendance.getCheckInTime() != null && attendance.getCheckOutTime() != null) {
+            attendance.updateHours();
+        }
+
+        attendance = attendanceRecordRepository.save(attendance);
+
+        syncOvertime(attendance);
+        return attendance;
+    }
+
+    public void deleteAttendance(Long attendanceId) {
+        AttendanceRecord attendance = attendanceRecordRepository.findById(attendanceId)
+                .orElseThrow(() -> new IllegalArgumentException("Attendance record not found"));
+        overtimeRecordRepository.findByAttendanceRecord(attendance)
+                .ifPresent(overtimeRecordRepository::delete);
+        attendanceRecordRepository.delete(attendance);
+    }
+
+    public void deleteOvertime(Long overtimeId) {
+        if (!overtimeRecordRepository.existsById(overtimeId)) {
+            throw new IllegalArgumentException("Overtime record not found");
+        }
+        overtimeRecordRepository.deleteById(overtimeId);
+    }
+
     public LeaveRecord requestLeave(User user, LocalDate leaveDate, String reason) {
         if (leaveDate == null) {
             throw new IllegalArgumentException("Leave date is required");
@@ -116,28 +192,16 @@ public class PayrollAutomationService {
     }
 
     public Map<String, Object> getMonthlyAttendanceSummary(User user, int year, int month) {
-        YearMonth ym = YearMonth.of(year, month);
-        LocalDate start = ym.atDay(1);
-        LocalDate end = ym.atEndOfMonth();
-
-        List<AttendanceRecord> attendance = attendanceRecordRepository.findByUserAndAttendanceDateBetween(user, start, end);
-        List<LeaveRecord> leaves = leaveRecordRepository.findByUserAndLeaveDateBetween(user, start, end);
-        List<OvertimeRecord> overtimes = overtimeRecordRepository.findByUserAndOvertimeDateBetween(user, start, end);
-
-        int workingDays = (int) attendance.stream().filter(a -> a.getCheckOutTime() != null).count();
-        int leaveDays = leaves.size();
-        int lateDays = (int) attendance.stream().filter(AttendanceRecord::isLate).count();
-        int absentDays = Math.max(ym.lengthOfMonth() - workingDays - leaveDays, 0);
-        double overtimeHours = overtimes.stream().mapToDouble(x -> x.getOvertimeHours() == null ? 0.0 : x.getOvertimeHours()).sum();
+        MonthlyAttendanceStats stats = calculateMonthlyAttendanceStats(user, year, month);
 
         return Map.of(
                 "month", month,
                 "year", year,
-                "workingDays", workingDays,
-                "leaveDays", leaveDays,
-                "lateDays", lateDays,
-                "absentDays", absentDays,
-                "totalOvertimeHours", round(overtimeHours),
+                "workingDays", stats.workingDays(),
+                "leaveDays", stats.leaveDays(),
+                "lateDays", stats.lateDays(),
+                "absentDays", stats.absentDays(),
+                "totalOvertimeHours", round(stats.totalOvertimeHours()),
                 "maxPaidLeaves", maxPaidLeaves
         );
     }
@@ -153,10 +217,21 @@ public class PayrollAutomationService {
     }
 
     public PayrollRecord generatePayrollForUser(User user, int year, int month) {
-        Map<String, Object> summary = getMonthlyAttendanceSummary(user, year, month);
+        YearMonth ym = YearMonth.of(year, month);
+        List<AttendanceRecord> incompleteAttendance = attendanceRecordRepository
+                .findByUserAndAttendanceDateBetweenAndCheckInTimeIsNotNullAndCheckOutTimeIsNull(
+                        user,
+                        ym.atDay(1),
+                        ym.atEndOfMonth()
+                );
+        if (!incompleteAttendance.isEmpty()) {
+            throw new IllegalArgumentException("Salary cannot be processed while attendance data is incomplete for " + user.getEmail());
+        }
 
-        int leaveDays = (int) summary.get("leaveDays");
-        double overtimeHours = ((Number) summary.get("totalOvertimeHours")).doubleValue();
+        MonthlyAttendanceStats stats = calculateMonthlyAttendanceStats(user, year, month);
+
+        int leaveDays = stats.leaveDays();
+        double overtimeHours = stats.totalOvertimeHours();
         BigDecimal baseSalary = resolveBaseSalary(user);
         BigDecimal hourlyRate = getHourlyRate(user);
         BigDecimal overtimePay = hourlyRate
@@ -170,10 +245,29 @@ public class PayrollAutomationService {
                 .multiply(BigDecimal.valueOf(extraLeaves))
                 .setScale(2, RoundingMode.HALF_UP);
 
-        BigDecimal finalSalary = baseSalary
+        BigDecimal grossSalary = baseSalary
                 .add(overtimePay)
                 .subtract(leaveDeduction)
                 .setScale(2, RoundingMode.HALF_UP);
+
+        BigDecimal epf = baseSalary.multiply(epfRate).setScale(2, RoundingMode.HALF_UP);
+
+        BigDecimal taxableIncome = grossSalary.subtract(taxThreshold);
+        if (taxableIncome.compareTo(BigDecimal.ZERO) < 0) {
+            taxableIncome = BigDecimal.ZERO;
+        }
+        BigDecimal tax = taxableIncome.multiply(taxRate).setScale(2, RoundingMode.HALF_UP);
+
+        BigDecimal otherDeductions = BigDecimal.ZERO;
+
+        BigDecimal finalSalary = grossSalary
+                .subtract(epf)
+                .subtract(tax)
+                .subtract(otherDeductions)
+                .setScale(2, RoundingMode.HALF_UP);
+        if (finalSalary.compareTo(BigDecimal.ZERO) < 0) {
+            finalSalary = BigDecimal.ZERO;
+        }
 
         PayrollRecord payroll = payrollRecordRepository.findByUserAndMonthAndYear(user, month, year)
                 .stream().findFirst()
@@ -187,23 +281,23 @@ public class PayrollAutomationService {
         payroll.setMonth(month);
         payroll.setYear(year);
         payroll.setPayrollMonth(String.format("%04d-%02d", year, month));
-        payroll.setWorkingDays((Integer) summary.get("workingDays"));
+        payroll.setWorkingDays(stats.workingDays());
         payroll.setLeaveDays(leaveDays);
-        payroll.setAbsentDays((Integer) summary.get("absentDays"));
-        payroll.setLateDays((Integer) summary.get("lateDays"));
+        payroll.setAbsentDays(stats.absentDays());
+        payroll.setLateDays(stats.lateDays());
         payroll.setTotalOvertimeHours(overtimeHours);
         payroll.setBaseSalary(baseSalary);
         payroll.setOvertimeRate(overtimeMultiplier);
         payroll.setOvertimePay(overtimePay);
         payroll.setLeaveDeduction(leaveDeduction);
-        payroll.setDeductions(BigDecimal.ZERO);
-        payroll.setEpf(BigDecimal.ZERO);
-        payroll.setTax(BigDecimal.ZERO);
+        payroll.setDeductions(otherDeductions);
+        payroll.setEpf(epf);
+        payroll.setTax(tax);
         payroll.setNetSalary(finalSalary);
         payroll.setPaymentStatus(PayrollPaymentStatus.UNPAID);
         payroll.setGeneratedDate(LocalDate.now());
         payroll.setPayDate(LocalDate.now());
-        payroll.setNotes("Auto-generated payroll");
+        payroll.setNotes("Auto-generated payroll from attendance and leave data");
 
         payroll = payrollRecordRepository.save(payroll);
         generatePayslip(payroll);
@@ -211,9 +305,16 @@ public class PayrollAutomationService {
     }
 
     public List<PayrollRecord> generatePayrollForMonth(int year, int month) {
-        List<User> staffUsers = userRepository.findAll().stream()
-                .filter(u -> u.getRole() == Role.STAFF || u.getRole() == Role.MANAGER)
+        List<User> staffUsers = payrollProfileService.findAllActiveProfiles().stream()
+                .map(PayrollProfile::getUser)
+                .filter(Objects::nonNull)
+                .distinct()
                 .toList();
+        if (staffUsers.isEmpty()) {
+            staffUsers = userRepository.findAll().stream()
+                    .filter(u -> u.getRole() == Role.STAFF || u.getRole() == Role.ADMIN || u.getRole() == Role.MANAGER)
+                    .toList();
+        }
 
         List<PayrollRecord> records = new ArrayList<>();
         for (User user : staffUsers) {
@@ -378,8 +479,66 @@ public class PayrollAutomationService {
                 .setScale(4, RoundingMode.HALF_UP);
     }
 
+    private MonthlyAttendanceStats calculateMonthlyAttendanceStats(User user, int year, int month) {
+        YearMonth ym = YearMonth.of(year, month);
+        LocalDate start = ym.atDay(1);
+        LocalDate end = ym.atEndOfMonth();
+
+        List<AttendanceRecord> attendance = attendanceRecordRepository.findByUserAndAttendanceDateBetween(user, start, end);
+        List<LeaveRecord> leaves = leaveRecordRepository.findByUserAndLeaveDateBetween(user, start, end);
+
+        int workingDays = (int) attendance.stream()
+                .filter(a -> a.getCheckInTime() != null && a.getCheckOutTime() != null)
+                .count();
+        int leaveDays = leaves.size();
+        int lateDays = (int) attendance.stream().filter(AttendanceRecord::isLate).count();
+
+        double overtimeHours = attendance.stream()
+                .mapToDouble(a -> a.getOvertimeHours() == null ? 0.0 : a.getOvertimeHours())
+                .sum();
+
+        int expectedWorkingDays = (int) start.datesUntil(end.plusDays(1))
+                .filter(d -> d.getDayOfWeek() != java.time.DayOfWeek.SATURDAY && d.getDayOfWeek() != java.time.DayOfWeek.SUNDAY)
+                .count();
+        int absentDays = Math.max(expectedWorkingDays - workingDays - leaveDays, 0);
+
+        return new MonthlyAttendanceStats(workingDays, leaveDays, lateDays, absentDays, round(overtimeHours));
+    }
+
+    private record MonthlyAttendanceStats(
+            int workingDays,
+            int leaveDays,
+            int lateDays,
+            int absentDays,
+            double totalOvertimeHours
+    ) {}
+
     private double round(double n) {
         return Math.round(n * 100.0) / 100.0;
+    }
+
+    private void syncOvertime(AttendanceRecord attendance) {
+        if (attendance.getOvertimeHours() != null && attendance.getOvertimeHours() > 0) {
+            User user = attendance.getUser();
+            BigDecimal hourlyRate = getHourlyRate(user);
+            BigDecimal multiplier = attendance.getUser() == null ? overtimeMultiplier : overtimeMultiplier;
+            BigDecimal overtimePay = hourlyRate
+                    .multiply(BigDecimal.valueOf(attendance.getOvertimeHours()))
+                    .multiply(multiplier)
+                    .setScale(2, RoundingMode.HALF_UP);
+
+            OvertimeRecord overtimeRecord = overtimeRecordRepository.findByAttendanceRecord(attendance)
+                    .orElseGet(() -> OvertimeRecord.builder()
+                            .user(user)
+                            .attendanceRecord(attendance)
+                            .overtimeDate(attendance.getAttendanceDate())
+                            .build());
+            overtimeRecord.setOvertimeHours(attendance.getOvertimeHours());
+            overtimeRecord.setOvertimePay(overtimePay);
+            overtimeRecordRepository.save(overtimeRecord);
+        } else {
+            overtimeRecordRepository.findByAttendanceRecord(attendance).ifPresent(overtimeRecordRepository::delete);
+        }
     }
 
     private String respondToCustomerChatbot(User user, String q) {
@@ -395,9 +554,11 @@ public class PayrollAutomationService {
                 .filter(room -> room.getStatus() == null || !"MAINTENANCE".equalsIgnoreCase(room.getStatus()))
                 .toList();
         List<RoomBooking> myRoomBookings = roomBookingRepository.findByCustomerEmailIgnoreCaseOrderByCheckInDateDesc(email);
-        List<EventBooking> myEvents = nameKey.isBlank()
+        List<EventBooking> myEvents = !email.isBlank()
+                ? eventBookingRepository.findByCustomerEmailContainingIgnoreCaseOrderByEventDateTimeDesc(email)
+                : (nameKey.isBlank()
                 ? Collections.emptyList()
-                : eventBookingRepository.findByCustomerNameContainingIgnoreCaseOrderByEventDateTimeDesc(nameKey);
+                : eventBookingRepository.findByCustomerNameContainingIgnoreCaseOrderByEventDateTimeDesc(nameKey));
         List<DiningBooking> myDining = diningBookingRepository.findByContactContainingIgnoreCaseOrderByBookingDateTimeDesc(email);
 
         if (containsAny(q, "room", "rooms", "stay", "book room")) {
@@ -436,7 +597,7 @@ public class PayrollAutomationService {
             return "You have " + myEvents.size() + " event booking(s). Latest: "
                     + Optional.ofNullable(latest.getEventType()).orElse("Event")
                     + " at " + Optional.ofNullable(latest.getHallName()).orElse("hall pending")
-                    + " on " + latest.getEventDateTime()
+                    + " from " + latest.getEventDateTime() + " to " + latest.getEndDateTime()
                     + ", status: " + Optional.ofNullable(latest.getStatus()).orElse("INQUIRY") + ".";
         }
 
